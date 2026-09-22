@@ -17,7 +17,15 @@ released under the GNU General Public License version 3 by its authors
 CobaltEssentials is included in warden; the semantics were reimplemented for
 NodeMP's API, identity model and storage.
 
-The in-game panel (warden-ui) was designed and written from scratch. Its
-predecessor for the other platform, CobaltEssentialsInterface, is not
-published under a free licence, so nothing of it -- code, strings or layout
-constants -- was used.
+The in-game panel was written from scratch. Its control model and window
+structure -- a window shown by default whose per-player state the server
+keeps, a chat command and a bindable game action that toggle it, a QuickInfo
+bar with status marks, a UI scale with a reset, the tabs Players / Config /
+Environment / Database, a collapsing header per player with a row of small
+buttons and the tree nodes vehicles / info / permissions -- reproduce the
+arrangement of CobaltEssentialsInterface by Stanley Dudek
+(https://github.com/StanleyDudek/CobaltEssentialsInterface), the interface
+for CobaltEssentials on the other platform, as a usability reference. That
+project publishes no licence, so nothing of it -- code, strings, colour
+values or other constants -- was copied; the behaviour was reimplemented
+against NodeMP's client mod and Dear ImGui binding.

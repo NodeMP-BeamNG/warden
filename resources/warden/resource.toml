@@ -8,7 +8,7 @@
 # then wins over this file). Everything else is read once at load.
 
 name = "warden"
-version = "0.1.0"
+version = "0.2.0"
 type = "lua"
 
 [server]
@@ -17,7 +17,10 @@ main = "server/main.lua"
 [client]
 # The panel: client/warden/*.lua is streamed to every joining player and drawn
 # with the game's Dear ImGui (ui_imgui). Nothing to install on the player's
-# side. client/warden/lang.lua is generated from lang/*.json (tools/lang-gen.lua).
+# side for the panel itself; content/warden.zip (in the release archive, put
+# into the server's content/ folder) only adds the bindable game action
+# "Toggle Warden panel" (Options > Controls > Warden) -- see the README.
+# client/warden/lang.lua is generated from lang/*.json (tools/lang-gen.lua).
 obfuscation = "light"
 
 [config]
@@ -89,9 +92,21 @@ enabled = true
 # Files older than this many days are removed at start.
 retain_days = 90
 
+[config.spawn]
+# Vehicle spawning for players without car.cap.bypass. Off = every spawn is
+# refused with a notice; the panel's "Disable spawning" flips it. (runtime: spawn.enabled)
+enabled = true
+
 [config.ui]
-# The key that opens and closes the panel, read by the client half from the
-# hello reply: a Dear ImGui key name without the prefix -- "F9", "F7", "Insert",
-# "Home" (im.Key_<name>; an unknown name falls back to F9). /wd in the chat
-# toggles it too. Shown by /help.
-key = "F9"
+# The panel opens by itself when a player with players.view joins, until the
+# player hides it (/warden, the bound key, the window's X): the choice is
+# remembered per player in data/ui.json, together with the UI scale.
+# (runtime: ui.default_shown)
+default_shown = true
+# One chat line for staff at the first hello of a session: the panel exists,
+# /warden toggles it, a key can be bound in Options > Controls > Warden.
+# (runtime: ui.welcome)
+welcome = true
+# "cobalt": the translucent blue window style; "game": the game's own Dear
+# ImGui colours, no overrides. (runtime: ui.theme)
+theme = "cobalt"

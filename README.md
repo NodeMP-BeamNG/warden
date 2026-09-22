@@ -2,11 +2,13 @@
 
 Server administration for [NodeMP](https://docs.nodemp.com): groups with
 levels and named permissions, kick / ban / temp-ban / whitelist / mute /
-warn, a vehicle cap per group, vote-kick, chat commands in English and
-Russian, an audit log, and an in-game admin panel (F9) drawn with the
-game's Dear ImGui and streamed to every player by the server -- nothing to
-install on the player's side. Everything is decided on the server; the
-panel only shows and asks.
+warn, a vehicle cap per group, a server-wide spawn switch, vote-kick, chat
+commands in English and Russian, an audit log, and an in-game admin panel
+drawn with the game's Dear ImGui and streamed to every player by the server
+-- nothing to install on the player's side. The panel follows the control
+model of the CobaltEssentials Interface: shown by default for staff, `/warden`
+in the chat hides and shows it, a key can be bound in the game's Controls.
+Everything is decided on the server; the panel only shows and asks.
 
 [Русская версия](README.ru.md) · Licence: GPL-3.0-or-later ([LICENSE](LICENSE), [NOTICE](NOTICE))
 
@@ -15,18 +17,23 @@ panel only shows and asks.
 1. Download `warden-<version>.zip` from the
    [releases](https://github.com/NodeMP-BeamNG/warden/releases) and unzip it
    at the server's root (the folder with `Node-Server`): it puts
-   `resources/warden/` in place.
+   `resources/warden/` and `content/warden.zip` in place.
 2. Install the `chat` resource (`examples/chat` in the server archive) beside
    it: warden takes its commands from the chat resource's bus event and
    answers through it. Without a chat resource set `chat_fallback = true`.
-3. The panel needs nothing more: `resources/warden/client/warden/*.lua` is
-   in the same archive and the server streams it to every joining player.
-   **F9** opens and closes it (`ui.key` in the config names another key);
-   `/wd` in the chat does the same for a player whose F9 is taken.
+3. The panel itself needs nothing more: `resources/warden/client/warden/*.lua`
+   is in the same archive and the server streams it to every joining player.
+   It opens by itself for staff (`players.view`); `/warden` (or `/wd`) in the
+   chat hides and shows it, and the choice is remembered per player.
+   `content/warden.zip` is the one small client mod the server hands out
+   through the launcher: it adds the game action **Toggle Warden panel**
+   (Options > Controls > Warden), with no default key -- every player binds
+   their own. Leave the zip in the server's `content/` folder (or the folder
+   your `[Content] Folder` setting names).
 4. Put your directory account id into `owner_ids` in
    `resources/warden/resource.toml`, or rely on `directory_admin_is_owner`
    (a directory `ADM` is an owner). Start the server; the log says
-   `warden 0.1.0 ready: 5 group(s), ...`.
+   `warden 0.2.0 ready: 5 group(s), ...`.
 
 On a server without a `[Directory]` every player is a guest keyed by IP; an
 owner then has to be made by editing `data/players.json`
@@ -67,7 +74,7 @@ Type them in the chat. `<player>` is a whole name (case-insensitive),
 | Command | Permission | What it does |
 |---|---|---|
 | `/help`, `/version`, `/whoami`, `/lang en\|ru` | — | Your commands, the version, your record, your language |
-| `/wd` | — | Show or hide the panel (same as F9) |
+| `/warden`, `/wd` | — | Show or hide the panel (remembered per player; the bound key does the same) |
 | `/players` | `players.view` | Who is online, with group and level |
 | `/kick <player> [reason]` | `mod.kick` | Disconnects with the reason |
 | `/ban <player> [reason]` | `mod.ban` | Permanent ban (account when verified, IP always) via the server's ban list |
@@ -91,18 +98,40 @@ exists, set `chat_veto_event` to its name and the lines are dropped.
 
 ## The panel
 
-**F9** (or `/wd`) opens the `Warden` window; what it shows follows the
-player's permissions, and a button the rank rule would refuse is greyed --
-the server checks again on every request and its refusal is printed where
-the button was.
+### Controls
+
+- The window `Warden vX.Y.Z` is **shown by default** when a player with
+  `players.view` joins (`ui.default_shown`); a plain player's is hidden.
+- **`/warden`** (or `/wd`) in the chat hides and shows it. Closing the window
+  with its X does the same. The choice is remembered per player on the
+  server (`data/ui.json`), together with the UI scale, so it survives a
+  rejoin.
+- A **key** of your own: Options > Controls > **Warden** > *Toggle Warden
+  panel*. No default key ships; the action comes from `content/warden.zip`,
+  which the launcher installs for the session. There is no fixed key any
+  more (0.1.0's built-in one is gone).
+- The console: `nodemp_wd.toggle()`.
+- At the first hello of a session staff get one chat line saying so
+  (`ui.welcome`).
+
+### Layout
+
+One window, the shape of the CobaltEssentials Interface: a **QuickInfo** bar
+(server name, players and cars out of their limits, your group, and the
+status chips `Spawn`, `Whitelist`, `Guests`, `Vote` -- `>>` green for open or
+allowed, `X` red for off or closed, `//` yellow while a vote runs with the
+seconds left), the **UI scale** input with its Reset and the language picker,
+then the tabs. What a tab shows follows the player's permissions, and a
+button the rank rule would refuse is greyed -- the server checks again on
+every request and its refusal is printed under the row. A button the platform
+has no call for yet is greyed too, and its tooltip names the server issue.
 
 | Tab | Needs | Shows |
 |---|---|---|
-| Players | `players.view` | Everyone online with id, account state, group, cars, ping, time online; a selected player's record (key, IP, joins, warnings, mute, limit) and the actions: kick, warn, mute, unmute, temp-ban, ban, set group, delete cars, whitelist, vote-kick -- with an inline form for the reason, the duration (30m / 2h / 1d / 7d / custom) and the group |
-| Groups | -- | The groups with level, inheritance, cap and permissions (read-only; a player's group is set from the Players tab) |
-| Settings | `settings.read` (+ `settings.write` to change) | The runtime settings with typed inputs (checkbox, number, choice) and a Reset where a value differs from `resource.toml` |
-| Audit | `audit.view` | The last N audit rows |
-| Bans | `mod.ban` | The bans with an Unban button |
+| Players | `players.view` | A row of server-wide quick actions (Disable / Enable spawning with `settings.write`, Whitelist on / off with `mod.whitelist`, Announce with `server.announce`; Freeze all / Unfreeze all and Remote stop / start all greyed until server #58 / #89), then a collapsing header per player -- name, group and level, cars, guest / muted / whitelisted -- coloured by group tier. Expanded: the small buttons Vote kick, Kick, Ban, TempBan, Mute or Unmute, Whitelist or Unwhitelist, Warn, Focus (the camera onto the player's vehicle, client side, off in a strict session), Teleport To / From (greyed until server #53); the Reason and Duration (30m / 2h / 1d / 7d / custom) fields the buttons read; Ban and TempBan ask for a second click. The tree nodes `vehicles` (the vehicles the client mod knows, Delete one or all; Freeze and Remote start greyed), `info` (id, account, key, IP, joins, first seen, warnings, limit, mute, names seen, ping, time online) and `permissions` (the group with Apply / Remove for `perms.set`). |
+| Config | -- | `Warden`: the groups (a table for all; an editor -- name, level, inherits, permissions, cars -- with `perms.manage`, under the same rules as the server: only below your level, only what you hold yourself), the whitelist (on / off, add, remove), the panel settings (shown by default, welcome line, vehicle spawning) and the runtime settings table with typed inputs and Reset (`settings.read`, `settings.write`). `Server`: name, map, version, max players, max cars -- read-only, runtime edits need server #39. `Interface`: theme (`cobalt` / `game`), UI scale, language. |
+| Environment | -- | A placeholder until server #52 (time of day and weather from the server); shows your game's own time of day. |
+| Database | any of `mod.ban`, `mod.mute`, `mod.whitelist`, `audit.view` | Bans with Unban, the mutes in force with Unmute, the whitelist entries with Remove, and the last N audit rows. |
 
 A running vote-kick shows a banner at the top of the screen with the count,
 the seconds left and Yes / No (`votekick.vote`) or Cancel (`votekick.cancel`)
@@ -138,7 +167,13 @@ keyboard away from the car yet -- stop before typing a reason.
   the panel and in the audit.
 - **Mute is advisory** until the server ships a cancellable chat event
   (server #43). **The panel's text fields** do not take the keyboard from the
-  vehicle action maps yet (planned for 0.1.1).
+  vehicle action maps yet.
+- **The key needs the content zip.** The game reads input actions from files
+  only (NodeMP #49), so the bindable action travels as `content/warden.zip`
+  through the launcher; the panel, `/warden` and the console work without
+  it. Focus is
+  client-side and refused in a strict session; Teleport, Freeze and Remote
+  start wait for the server calls (#53, #58, #89).
 
 ## Configuration
 
@@ -169,7 +204,10 @@ Keys marked runtime can be changed with `/settings set` (kept in
 | `limits.ui_per_min` | int 1..5000 | `120` |  | `wd:req` frames one client may send per minute. |
 | `audit.enabled` | bool | `true` |  | Write `data/audit/YYYY-MM-DD.jsonl`. |
 | `audit.retain_days` | int 1..3650 | `90` |  | Audit files older than this are removed at start. |
-| `ui.key` | string | `"F9"` |  | The key that opens the panel, a Dear ImGui key name (`F9`, `F7`); `/wd` toggles it too. |
+| `spawn.enabled` | bool | `true` | yes | Vehicle spawning for players without `car.cap.bypass`; the panel's "Disable spawning" flips it. |
+| `ui.default_shown` | bool | `true` | yes | The panel opens by itself when a player with `players.view` joins, until they hide it (remembered per player in `data/ui.json`). |
+| `ui.welcome` | bool | `true` | yes | One chat line for staff at their first hello: `/warden` toggles the panel, a key can be bound in Options > Controls > Warden. |
+| `ui.theme` | string (cobalt / game) | `"cobalt"` | yes | `cobalt`: the translucent blue window style; `game`: the game's own Dear ImGui colours. |
 <!-- config-doc:end -->
 
 ## Storage
@@ -185,6 +223,7 @@ second per file:
 | `whitelist.json` | Whitelist entries (`acct:`, `ip:` or `name:` for a player not seen yet) |
 | `bans_meta.json` | Who banned, why, until when; the bans themselves are the server's (`bans.json`) |
 | `settings.json` | Runtime overrides |
+| `ui.json` | Per player (by key): the panel shown or hidden, the UI scale; bounded, the least recently seen records go first |
 | `audit/YYYY-MM-DD.jsonl` | One JSON object per action or refusal; pruned after `audit.retain_days` |
 
 ## For other resources
@@ -202,11 +241,17 @@ A new version may add groups or permissions to the defaults; existing
 `groups.json` files are left as they are — `/groups` and the panel show what
 you have.
 
+From 0.1.0: the config key `ui.key` is gone (a value left in `resource.toml`
+is simply not read); the panel opens by itself for staff
+(`ui.default_shown`); `content/warden.zip` is new -- keep it in `content/`
+for the bindable key; the panel protocol is 2 (the server streams the
+matching panel, nothing to update on the players' side).
+
 ## Development
 
 `docs/dev.md`. Continuous integration is described in
 `.github/workflows/ci.yml`; GitHub Actions is billing-blocked for the
 organisation at the moment, so run the checks locally:
-`luacheck resources tests tools`, `lua tests/unit/run.lua`,
+`luacheck resources content tests tools`, `lua tests/unit/run.lua`,
 `lua tools/lang-check.lua`, `lua tools/lang-gen.lua --check`,
 `tools/get-server.ps1` and `python tests/gate/<name>_test.py`.
