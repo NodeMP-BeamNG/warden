@@ -124,8 +124,9 @@ function M.cast(player, yes)
     if player.id == current.target.pid then return nil, "vote.target_cannot" end
     current.votes[player.id] = yes and true or false
     emit("updated")
+    local counted = M.state()
     M.resolve()
-    return true
+    return true, counted
 end
 
 function M.cancel(actor)

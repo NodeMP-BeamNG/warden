@@ -9,10 +9,16 @@
 
 name = "warden"
 version = "0.1.0"
-type = "server"
+type = "lua"
 
 [server]
 main = "server/main.lua"
+
+[client]
+# The client half is the separate warden-ui release: its zip puts
+# resources/warden/client/warden/*.lua here (streamed to every joining player)
+# and content/warden-ui.zip beside it. Without it warden works from the chat.
+obfuscation = "light"
 
 [config]
 # The language of the server's own lines (chat answers, refusals): "en" or "ru".

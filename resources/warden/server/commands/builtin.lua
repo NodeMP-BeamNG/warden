@@ -247,9 +247,10 @@ registry.define("vote_cast", {
     perm = "votekick.vote", shape = { yes = { type = "bool" } }, audit = false,
     fn = function(ctx)
         if ctx.actor.console then return "console_cannot" end
-        local ok, err = votekick.cast(ctx.actor.player, ctx.data.yes)
-        if not ok then return err end
-        return { vote = votekick.state() }
+        local ok, counted = votekick.cast(ctx.actor.player, ctx.data.yes)
+        if not ok then return counted end
+        -- the count with this vote in; the outcome, if it decided the vote, arrives as vote.state
+        return { vote = counted, running = votekick.running() }
     end,
 })
 
