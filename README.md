@@ -59,9 +59,9 @@ change (a file that does not parse is left alone and reported in the log).
 
 ## Commands
 
-Type them in the chat. `<player>` is a name (case-insensitive, or a unique
-prefix of a name seen before), `#<id>` for a connected player, or a key
-`acct:<id>` / `ip:<addr>`. Durations are `30m`, `2h`, `7d`.
+Type them in the chat. `<player>` is a whole name (case-insensitive),
+`#<id>` for a connected player, or a key `acct:<id>` / `ip:<addr>` (see
+[Caveats](#caveats)). Durations are `30m`, `2h`, `7d`.
 
 | Command | Permission | What it does |
 |---|---|---|
@@ -113,6 +113,31 @@ The panel is plain Lua drawn with the game's Dear ImGui, streamed at every
 join and gone when the player leaves; it never receives code from the
 server, only JSON data. A text field of the panel does not take the
 keyboard away from the car yet -- stop before typing a reason.
+
+## Caveats
+
+- **A guest is their address.** A player without a directory account is
+  keyed by IP: banning or whitelisting a guest affects every player behind
+  that address (NAT, a shared host), and a guest who comes back from another
+  address is a new player. Reliable identity needs a directory account.
+- **A name admits nobody by itself.** `name:` whitelist entries admit
+  signed-in accounts only; a guest's name is whatever they typed, so such an
+  entry never admits one. Without a directory, whitelist by `#pid` or by
+  `ip:` key (`/whitelist add <name>` says so).
+- **Vote-kick is off by default.** Votes weigh by identity (all guests
+  behind one address are one vote) and the cooldowns survive a restart, but
+  puppets from different addresses still count. Turn it on knowingly.
+- **Targets are exact.** `/group`, `/whitelist add`, `/ban` and every other
+  command that changes something need the whole name, `#pid` or a key; a
+  prefix matches nobody. A name a connected guest shares with a known player
+  is refused as ambiguous -- use `#pid` or the key.
+- **`chat_fallback = true` without the `chat` resource**: `player:tell` has
+  nothing to show it, so players without the panel get no answers.
+- **Addresses are for `mod.ban` and up.** Lower groups see them masked in
+  the panel and in the audit.
+- **Mute is advisory** until the server ships a cancellable chat event
+  (server #43). **The panel's text fields** do not take the keyboard from the
+  vehicle action maps yet (planned for 0.1.1).
 
 ## Configuration
 
