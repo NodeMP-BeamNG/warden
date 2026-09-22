@@ -1,0 +1,87 @@
+# warden -- server administration for NodeMP: groups and levels, kick / ban /
+# whitelist / mute / warn, per-group vehicle caps, vote-kick, chat commands and
+# the wd:req protocol the warden-ui client half talks.
+#
+# Every [config] value is optional: a missing key takes the default written
+# here. The keys marked "runtime" can also be changed while the server runs
+# with `/settings set <key> <value>` (persisted in data/settings.json, which
+# then wins over this file). Everything else is read once at load.
+
+name = "warden"
+version = "0.1.0"
+type = "server"
+
+[server]
+main = "server/main.lua"
+
+[config]
+# The language of the server's own lines (chat answers, refusals): "en" or "ru".
+# A player picks their own with /lang. (runtime: language)
+language = "en"
+
+# Directory account ids that are owners whatever data/players.json says. The
+# owner group is never assigned with a command: only from here or from the
+# directory's ADM role below.
+owner_ids = []
+
+# A player whose directory role is "ADM" (a directory administrator) is an owner.
+directory_admin_is_owner = true
+
+# Let players without a directory account (guests, or every player on a server
+# with no [Directory]) join. Their record is keyed by IP. (runtime: allow_guests)
+allow_guests = true
+
+# Show the player's group as the tag beside the nickname (player:setRole).
+# Turn off when another resource owns the tag. (runtime: role_tag)
+role_tag = true
+
+# The group a first-time player lands in.
+default_group = "default"
+
+# Chat commands arrive through the `chat` resource's bus event chat:command.
+# With no chat resource installed, set this to true and warden reads the wire
+# event chat:send itself (the lines are then not shown to anybody).
+chat_fallback = false
+
+# The cancellable chat event that lets a resource veto a line (server issue
+# #43). Empty until the platform ships it; once it does, put its name here and
+# muted players' lines are dropped instead of only being answered with a notice.
+chat_veto_event = ""
+
+[config.whitelist]
+# Only players on the list (data/whitelist.json) may join. (runtime: whitelist.enabled)
+enabled = false
+
+[config.votekick]
+# (runtime: votekick.*)
+enabled = true
+# Share of the eligible voters (everyone connected except the target) that must
+# say yes: 0.6 = 60 %.
+threshold = 0.6
+# No vote with fewer players connected.
+min_players = 4
+# Seconds a vote stays open.
+window_sec = 60
+# Seconds before the same target, or the same starter, can be in a vote again.
+cooldown_sec = 300
+# Players at this group level or above cannot be vote-kicked.
+immune_level = 50
+
+[config.limits]
+# Chat commands one player may run per 10 seconds.
+commands_per_10s = 8
+# wd:req frames one client may send per second and per minute.
+ui_per_sec = 10
+ui_per_min = 120
+
+[config.audit]
+# Write data/audit/YYYY-MM-DD.jsonl (one JSON object per line).
+enabled = true
+# Files older than this many days are removed at start.
+retain_days = 90
+
+[config.ui]
+# The key warden-ui binds to open the panel. Informational: the binding lives
+# in the client content zip (settings/inputmaps); this value is what /help and
+# the panel show.
+key = "F9"
