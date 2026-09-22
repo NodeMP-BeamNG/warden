@@ -40,8 +40,10 @@ local DESCRIPTIONS = {
         ["allow_guests"] = "Admit players without a directory account (keyed by IP).",
         ["role_tag"] = "Show the group as the tag beside the nickname.",
         ["default_group"] = "The group a first-time player lands in.",
-        ["chat_fallback"] = "Read `chat:send` directly instead of the `chat` resource's bus event (no chat resource installed).",
-        ["chat_veto_event"] = "Name of the cancellable chat event once the platform ships it (server #43); mutes then drop lines.",
+        ["chat_fallback"] = "Read `chat:send` directly instead of the `chat` resource's bus event "
+            .. "(no chat resource installed).",
+        ["chat_veto_event"] = "Name of the cancellable chat event once the platform ships it (server #43); "
+            .. "mutes then drop lines.",
         ["whitelist.enabled"] = "Only players in `data/whitelist.json` may join.",
         ["votekick.enabled"] = "Vote-kick on or off.",
         ["votekick.threshold"] = "Share of eligible voters that must say yes (0.6 = 60 %).",
@@ -63,8 +65,10 @@ local DESCRIPTIONS = {
         ["allow_guests"] = "Пускать игроков без аккаунта directory (ключ — IP).",
         ["role_tag"] = "Показывать группу тегом рядом с ником.",
         ["default_group"] = "Группа, в которую попадает новый игрок.",
-        ["chat_fallback"] = "Читать `chat:send` напрямую вместо события шины ресурса `chat` (когда ресурс chat не установлен).",
-        ["chat_veto_event"] = "Имя отменяемого события чата, когда платформа его выпустит (server #43); мьют тогда глушит строки.",
+        ["chat_fallback"] = "Читать `chat:send` напрямую вместо события шины ресурса `chat` "
+            .. "(когда ресурс chat не установлен).",
+        ["chat_veto_event"] = "Имя отменяемого события чата, когда платформа его выпустит (server #43); "
+            .. "мьют тогда глушит строки.",
         ["whitelist.enabled"] = "Пускать только игроков из `data/whitelist.json`.",
         ["votekick.enabled"] = "Голосование за кик включено.",
         ["votekick.threshold"] = "Доля голосующих, которые должны сказать «да» (0.6 = 60 %).",
@@ -102,7 +106,9 @@ local function render_type(spec)
     local t = spec.type
     if spec.enum then t = t .. " (" .. table.concat(spec.enum, " / ") .. ")" end
     if spec.min ~= nil or spec.max ~= nil then
-        t = t .. " " .. tostring(spec.min ~= nil and spec.min or "") .. ".." .. tostring(spec.max ~= nil and spec.max or "")
+        local lo = spec.min ~= nil and spec.min or ""
+        local hi = spec.max ~= nil and spec.max or ""
+        t = t .. " " .. tostring(lo) .. ".." .. tostring(hi)
     end
     return t
 end
@@ -121,8 +127,8 @@ local function table_for(lang)
     for _, key in ipairs(config.ORDER) do
         local spec = config.SCHEMA[key]
         if desc[key] == nil then error("config-doc: no " .. lang .. " description for " .. key) end
-        out[#out + 1] = string.format("| `%s` | %s | %s | %s | %s |", key, render_type(spec), render_default(spec.default),
-            spec.runtime and "yes" or "", desc[key])
+        out[#out + 1] = string.format("| `%s` | %s | %s | %s | %s |", key, render_type(spec),
+            render_default(spec.default), spec.runtime and "yes" or "", desc[key])
     end
     return table.concat(out, "\n")
 end

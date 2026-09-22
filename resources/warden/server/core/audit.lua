@@ -90,7 +90,7 @@ local function write()
         log.error("audit: cannot write %s (%d row(s) kept for the next flush)", tmp, #pending)
         return false
     end
-    local ok = false
+    local ok
     if node.fs.rename and node.fs.rename(tmp, path) then
         ok = true
     else
