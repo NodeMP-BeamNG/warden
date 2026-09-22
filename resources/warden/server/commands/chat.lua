@@ -99,6 +99,11 @@ command("version", { usage = "", run = function(player)
     say.tell(player, "version", { version = m.version or "?" })
 end })
 
+-- the panel toggle for a player whose key is taken: the client half hears wd:event panel
+command("wd", { usage = "", run = function(player)
+    require("ui.protocol").send_event(player, "panel", { toggle = true })
+end })
+
 command("whoami", { usage = "", kind = "whoami", run = function(player, actor)
     run(player, actor, "whoami", {}, function(d)
         local me = d.me or {}

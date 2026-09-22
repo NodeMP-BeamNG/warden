@@ -44,9 +44,14 @@ def main():
 
         m = a.chat("/help")
         lines = a.chat_lines(m)
-        check(lines and lines[0].startswith("7 command(s) you may use (panel key: F9)"), "/help header for default", lines)
-        check("/vote yes|no|cancel" in lines and "/kick <player> [reason]" not in lines,
+        check(lines and lines[0].startswith("8 command(s) you may use (panel key: F9)"), "/help header for default", lines)
+        check("/vote yes|no|cancel" in lines and "/wd" in lines and "/kick <player> [reason]" not in lines,
               "the default group sees its commands only", lines)
+
+        # /wd: the panel toggle for a player whose key is taken -- one wd:event panel to the sender
+        m = a.chat("/wd")
+        panel = a.events("panel", since=m)
+        check(len(panel) == 1 and panel[0].get("toggle") is True, "/wd sends wd:event panel", panel)
 
         m = a.chat("/kick Alice")
         lines = a.chat_lines(m)
