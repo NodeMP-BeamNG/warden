@@ -628,7 +628,7 @@ class Inbox:
             return {"id": rid, "ok": False, "error": {"code": "no_reply"}}
         return reply
 
-    def hello(self, lang=None, protocol=1, ui_version="gate"):
+    def hello(self, lang=None, protocol=2, ui_version="gate"):
         data = {"protocol": protocol, "uiVersion": ui_version}
         if lang is not None:
             data["lang"] = lang

@@ -5,6 +5,8 @@
 --   caps.limit(player) -> number       -1 for unlimited
 --   caps.check(player) -> true | false, reason_code, params
 --   caps.delete_all(player) -> n       every vehicle the player has
+--   caps.delete_one(player, vid) -> bool   one of the player's vehicles by its global id; false
+--                                       when it is not theirs (nobody deletes through a stranger)
 
 local groups = require("perms.groups")
 local perms = require("perms.perms")
@@ -31,6 +33,14 @@ function M.delete_all(player)
         if type(v.delete) == "function" and v:delete() then n = n + 1 end
     end
     return n
+end
+
+function M.delete_one(player, vid)
+    local list = type(player.vehicles) == "function" and player:vehicles() or {}
+    for _, v in ipairs(list or {}) do
+        if v.id == vid and type(v.delete) == "function" then return v:delete() == true end
+    end
+    return false
 end
 
 return M

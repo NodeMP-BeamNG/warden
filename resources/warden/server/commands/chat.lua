@@ -88,7 +88,7 @@ end
 
 command("help", { usage = "", run = function(player, actor)
     local lines = M.help(actor)
-    say.tell(player, "help.header", { n = #lines, key = cfg.ui.key })
+    say.tell(player, "help.header", { n = #lines })
     for _, c in ipairs(lines) do
         pcall(player.tell, player, "/" .. c.name .. (c.usage ~= "" and (" " .. c.usage) or ""))
     end
@@ -99,10 +99,13 @@ command("version", { usage = "", run = function(player)
     say.tell(player, "version", { version = m.version or "?" })
 end })
 
--- the panel toggle for a player whose key is taken: the client half hears wd:event panel
-command("wd", { usage = "", run = function(player)
+-- the panel toggle (the CobaltEssentials Interface's /CEI): the client half hears
+-- wd:event panel and shows or hides the window; /wd is the short alias
+local function toggle_panel(player)
     require("ui.protocol").send_event(player, "panel", { toggle = true })
-end })
+end
+command("warden", { usage = "", run = toggle_panel })
+command("wd", { usage = "", run = toggle_panel })
 
 command("whoami", { usage = "", kind = "whoami", run = function(player, actor)
     run(player, actor, "whoami", {}, function(d)

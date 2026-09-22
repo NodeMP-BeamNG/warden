@@ -2,6 +2,9 @@
 # the same layout as tools/pack.sh:
 #   resources/warden/      the server resource with its client/ half -- the panel the
 #                          server streams to every player (without data/ and any dev/ probes)
+#   content/warden.zip     the client content zip built here from content/warden/: the
+#                          bindable game action "Toggle Warden panel" (the server's content/
+#                          folder delivers it to the players through the launcher)
 #   LICENSE NOTICE         the licence and the notices (GPL section 4: every copy carries them)
 #   README.md README.ru.md CHANGELOG.md
 #   docs/                  the hoster documentation (dev.md excluded)
@@ -17,6 +20,27 @@ $manifest = Join-Path $root "resources\warden\resource.toml"
 $versionLine = Get-Content $manifest | Where-Object { $_ -match '^version\s*=\s*"([^"]+)"' } | Select-Object -First 1
 if (-not $versionLine) { throw "pack: no version = ""x.y.z"" in $manifest" }
 $version = [regex]::Match($versionLine, '^version\s*=\s*"([^"]+)"').Groups[1].Value
+
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+# one entry per file, forward slashes, ordinal order, no directory entries
+function New-FlatZip([string]$source, [string]$target) {
+    $files = @(Get-ChildItem -Recurse -File -Force $source | ForEach-Object { $_.FullName })
+    [Array]::Sort($files, [StringComparer]::Ordinal)
+    Remove-Item -Force -ErrorAction SilentlyContinue $target
+    $zip = [IO.Compression.ZipFile]::Open($target, [IO.Compression.ZipArchiveMode]::Create)
+    try {
+        foreach ($full in $files) {
+            $rel = $full.Substring($source.Length).TrimStart('\', '/').Replace('\', '/')
+            [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $full, $rel,
+                [IO.Compression.CompressionLevel]::Optimal) | Out-Null
+        }
+    } finally {
+        $zip.Dispose()
+    }
+    return $files.Count
+}
 
 # the panel's dictionary is generated from lang/*.json: never ship a stale one
 $lua = Get-Command lua, lua5.4 -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -50,21 +74,17 @@ try {
         Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $stage "docs\dev.md")
     }
 
-    # one entry per file, forward slashes, ordinal order, no directory entries
-    Add-Type -AssemblyName System.IO.Compression
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $files = @(Get-ChildItem -Recurse -File -Force $stage | ForEach-Object { $_.FullName })
-    [Array]::Sort($files, [StringComparer]::Ordinal)
-    $zip = [IO.Compression.ZipFile]::Open($zipPath, [IO.Compression.ZipArchiveMode]::Create)
-    try {
-        foreach ($full in $files) {
-            $rel = $full.Substring($stage.Length).TrimStart('\', '/').Replace('\', '/')
-            [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $full, $rel,
-                [IO.Compression.CompressionLevel]::Optimal) | Out-Null
-        }
-    } finally {
-        $zip.Dispose()
+    # the client content zip: the game action (content/warden/ -> content/warden.zip)
+    $contentSrc = Join-Path $root "content\warden"
+    if (-not (Test-Path (Join-Path $contentSrc "lua\ge\extensions\core\input\actions\warden.json"))) {
+        throw "pack: content/warden/ carries no input action; the archive must ship content/warden.zip"
     }
+    New-Item -ItemType Directory -Path (Join-Path $stage "content") | Out-Null
+    $inner = New-FlatZip $contentSrc (Join-Path $stage "content\warden.zip")
+    if ($inner -lt 2) { throw "pack: content/warden.zip has $inner file(s); expected the action and the modScript" }
+
+    $files = @(Get-ChildItem -Recurse -File -Force $stage | ForEach-Object { $_.FullName })
+    $written = New-FlatZip $stage $zipPath
 } finally {
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $stage
 }
@@ -76,7 +96,10 @@ if ($bad.Count -gt 0) {
     Remove-Item -Force -ErrorAction SilentlyContinue $zipPath
     throw ("pack: bad zip entries: " + ($bad -join ", "))
 }
-if ($names.Count -ne $files.Count) { throw "pack: $($names.Count) entries written for $($files.Count) files" }
+if ($names.Count -ne $files.Count -or $written -ne $files.Count) {
+    throw "pack: $($names.Count) entries written for $($files.Count) files"
+}
+if ($names -notcontains "content/warden.zip") { throw "pack: the archive carries no content/warden.zip" }
 
 $hash = (Get-FileHash -Algorithm SHA256 $zipPath).Hash.ToLower()
 [IO.File]::WriteAllText("$zipPath.sha256", "$hash  warden-$version.zip`n")

@@ -10,6 +10,7 @@
 --   mutes.mute(target, by, reason, duration_sec?) -> ok
 --   mutes.unmute(key) -> ok, err
 --   mutes.is_muted(key) -> bool, record      expired mutes are cleared on read
+--   mutes.list() -> array { key, name, reason, by, at, until }   the mutes in force (expired ones cleared)
 --   mutes.warn(target, by, reason) -> count
 --   mutes.warns(key) -> array
 --   mutes.install_veto(event_name)          node.on(event, ...) returning false for muted players
@@ -58,6 +59,24 @@ function M.is_muted(key)
         return false
     end
     return true, m
+end
+
+function M.list()
+    local out = {}
+    for key, rec in pairs(identity.all()) do
+        if type(rec) == "table" and type(rec.mute) == "table" then
+            local muted, m = M.is_muted(key)
+            if muted then
+                out[#out + 1] = { key = key, name = identity.display(key), reason = m.reason, by = m.by, at = m.at,
+                    ["until"] = m["until"] }
+            end
+        end
+    end
+    table.sort(out, function(a, b)
+        if (a.at or 0) ~= (b.at or 0) then return (a.at or 0) > (b.at or 0) end
+        return a.key < b.key
+    end)
+    return out
 end
 
 function M.warn(target, by, reason)

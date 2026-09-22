@@ -55,7 +55,9 @@ whitelist.init()
 mutes.init()
 votekick.init()
 
--- commands and the panel protocol
+-- commands and the panel protocol (the panel's per-player state first: the kinds read it)
+local uistate = require("ui.uistate")
+uistate.init()
 local chat = require("commands.chat")
 local ops = require("ui.ops")
 local push = require("ui.push")
@@ -110,6 +112,7 @@ node.on("playerJoined", function(player)
     perms.remember(player)   -- the level and the directory's ADM flag, for the rank rule while offline
     perms.apply_tag(player)
     push.players()
+    push.status()
     local muted, m = mutes.is_muted(identity.key(player))
     if muted then
         say.tell(player, "you.muted", { by = m.by or "-", reason = m.reason ~= "" and m.reason or "-",
@@ -124,15 +127,24 @@ node.on("playerLeft", function(player)
     chat.forget(player.id)
     mutes.forget(player.id)
     push.players()
+    push.status()
 end)
 
+-- spawning off for the server (spawn.enabled; car.cap.bypass still may), then
 -- the vehicle cap of the player's group
 node.on("vehicleSpawnRequest", function(player)
+    if not settings.get("spawn.enabled") and not perms.has(player, "car.cap.bypass") then
+        return false, say.text(player, "spawn.disabled")
+    end
     local ok, code, params = caps.check(player)
     if not ok then
         return false, say.text(player, code, params)
     end
 end)
+
+-- the car counts of the QuickInfo bar
+node.on("vehicleSpawned", function() push.status() end)
+node.on("vehicleDeleted", function() push.status() end)
 
 -- a muted player's line: told they are muted (the line itself still goes
 -- through the chat resource until server issue #43; see moderation.mutes)

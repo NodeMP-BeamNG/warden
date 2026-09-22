@@ -1,10 +1,17 @@
 -- ui.ops: the operations the panel may ask for -- each a kind of
 -- commands.registry (the same checks as the chat commands) or one of the
 -- few panel-only ops (sys.hello, players.subscribe). The op names are what
--- warden-ui's protocol.mjs mirrors.
+-- client/warden/state.lua mirrors.
 --
 --   ops.run(actor, op, data) -> result
 --   ops.OPS -> op -> { kind } | { fn }
+--   ops.hello_record(player) -> the sys.hello reply data (the tests read it too)
+--
+-- The hello record (protocol 2): protocol, version, lang, me, perms, vote,
+-- permissions, default_group, ui { shown, scale, theme }, server { name,
+-- map, version, max_players, max_cars }, status (ui.push.status_snapshot:
+-- whitelist / spawn / guests / players / cars). No key: the panel has no
+-- fixed key since 0.2.0 -- /warden, the bindable game action, or the console.
 
 local builtin = require("commands.builtin")
 local groups = require("perms.groups")
@@ -18,7 +25,40 @@ local votekick = require("votekick.votekick")
 local M = {}
 
 M.VERSION = nil   -- set by init from the manifest
-M.PROTOCOL = 1
+M.PROTOCOL = 2
+
+local function server_info()
+    local s = node.server or {}
+    local function call(name)
+        local fn = s[name]
+        if type(fn) ~= "function" then return nil end
+        local ok, v = pcall(fn)
+        if ok then return v end
+        return nil
+    end
+    return {
+        name = call("name"), map = call("map"), version = call("version"),
+        max_players = call("maxPlayers"), max_cars = call("maxCars"),
+    }
+end
+
+function M.hello_record(player, actor)
+    return {
+        protocol = M.PROTOCOL, version = M.VERSION, lang = say.lang_of(player),
+        me = builtin.player_row(player, true, actor), perms = perms.perms_of(player),
+        vote = votekick.state(), permissions = groups.PERMISSIONS,
+        default_group = settings.config().default_group,
+        ui = M.ui_of(player),
+        server = server_info(),
+        status = push.status_snapshot(),
+    }
+end
+
+function M.ui_of(player)
+    local ui = builtin.ui_state(player)
+    ui.theme = settings.get("ui.theme")
+    return ui
+end
 
 M.OPS = {
     ["sys.hello"] = { fn = function(actor, data)
@@ -32,13 +72,13 @@ M.OPS = {
         if proto ~= M.PROTOCOL then
             return { ok = false, error = { code = "ui_outdated", params = { server = M.PROTOCOL, ui = proto } } }
         end
+        local first = not push.has_panel(player.id)
         push.hello(player.id)
-        return { ok = true, data = {
-            protocol = M.PROTOCOL, version = M.VERSION, lang = say.lang_of(player),
-            key = settings.config().ui.key,
-            me = builtin.player_row(player, true, actor), perms = perms.perms_of(player),
-            vote = votekick.state(), permissions = groups.PERMISSIONS,
-        } }
+        if first and settings.get("ui.welcome") and perms.has(player, "players.view") then
+            -- one line per session, once the panel is there (so the chat is up too)
+            say.tell(player, "welcome", { version = tostring(M.VERSION) })
+        end
+        return { ok = true, data = M.hello_record(player, actor) }
     end },
     ["players.subscribe"] = { fn = function(actor, data)
         if actor.console then return { ok = false, error = { code = "console_cannot" } } end
@@ -56,6 +96,8 @@ M.OPS = {
     ["players.get"] = { kind = "player_get" },
     ["me.get"] = { kind = "whoami" },
     ["me.lang"] = { kind = "lang" },
+    ["ui.get"] = { kind = "ui_get" },
+    ["ui.set"] = { kind = "ui_set" },
     ["mod.kick"] = { kind = "kick" },
     ["mod.ban"] = { kind = "ban" },
     ["mod.tempban"] = { kind = "tempban" },
@@ -63,6 +105,7 @@ M.OPS = {
     ["mod.bans"] = { kind = "bans" },
     ["mod.mute"] = { kind = "mute" },
     ["mod.unmute"] = { kind = "unmute" },
+    ["mod.mutes"] = { kind = "mutes" },
     ["mod.warn"] = { kind = "warn" },
     ["whitelist.add"] = { kind = "whitelist_add" },
     ["whitelist.remove"] = { kind = "whitelist_remove" },
@@ -88,7 +131,13 @@ M.OPS = {
 function M.run(actor, op, data)
     local spec = M.OPS[op]
     if spec == nil then return { ok = false, error = { code = "unknown_op", params = { op = op } } } end
-    if spec.fn then return spec.fn(actor, data) end
+    if spec.fn then
+        -- the two panel-only ops are guarded like the kinds: an exception is a reply, not a timeout
+        local ok, res = xpcall(spec.fn, debug.traceback, actor, data)
+        if ok then return res end
+        node.log("[warden] " .. tostring(op) .. " failed: " .. tostring(res))
+        return { ok = false, error = { code = "internal" } }
+    end
     return registry.run(actor, spec.kind, data)
 end
 

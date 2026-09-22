@@ -602,7 +602,7 @@ tests.l2_addresses_only_for_mod_ban = function()
     t.eq(r.data.player.ip, "10.0.0.3", "one's own address")
     r = req(W, mod, 4, "me.get")
     t.eq(r.data.me.ip, "10.0.0.3")
-    r = req(W, mod, 5, "sys.hello", { protocol = 1 })
+    r = req(W, mod, 5, "sys.hello", { protocol = W.protocol.PROTOCOL })
     t.eq(r.data.me.ip, "10.0.0.3")
     -- an admin sees them
     r = req(W, admin, 6, "players.get", { pid = 5 })

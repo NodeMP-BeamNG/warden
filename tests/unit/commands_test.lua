@@ -260,8 +260,8 @@ tests.settings_from_chat = function()
     node._told = {}
     cmd(W, admin, "/settings set votekick.threshold 2")
     t.match(node._told_text(2), "Bad value for votekick%.threshold: above 1")
-    cmd(W, admin, "/settings set ui.key F1")
-    t.match(node._told_text(2), "No runtime setting 'ui%.key'")
+    cmd(W, admin, "/settings set limits.ui_per_sec 5")
+    t.match(node._told_text(2), "No runtime setting 'limits%.ui_per_sec'")
     node._told = {}
     cmd(W, admin, "/settings get votekick.threshold")
     t.match(node._told_text(2), "votekick%.threshold = 0%.8 %(default 0%.6%)")

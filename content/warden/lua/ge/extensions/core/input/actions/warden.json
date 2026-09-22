@@ -1,0 +1,11 @@
+{
+    "toggleWarden": {
+        "cat": "warden",
+        "order": 0,
+        "ctx": "tlua",
+        "onDown": "if nodemp_wd then nodemp_wd.toggle() end",
+        "isBasic": true,
+        "title": "Toggle Warden panel",
+        "desc": "Show or hide the Warden admin panel of a NodeMP server that runs the warden resource (the chat command /warden does the same). No default key: bind one here."
+    }
+}

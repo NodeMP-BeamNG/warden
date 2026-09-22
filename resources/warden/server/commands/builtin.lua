@@ -14,6 +14,7 @@ local perms = require("perms.perms")
 local registry = require("commands.registry")
 local say = require("core.say")
 local settings = require("core.settings")
+local uistate = require("ui.uistate")
 local util = require("core.util")
 local votekick = require("votekick.votekick")
 local whitelist = require("moderation.whitelist")
@@ -106,6 +107,16 @@ registry.define("unmute", {
         if not ok then return err end
         if ctx.target.player then say.tell(ctx.target.player, "you.unmuted", {}) end
         return { target = target_info(ctx.target) }
+    end,
+})
+
+-- the mutes in force (the panel's Database tab); addresses for mod.ban and up
+registry.define("mutes", {
+    perm = "mod.mute", audit = false,
+    fn = function(ctx)
+        local list = mutes.list()
+        if not reveals(ctx.actor) then list = identity.mask(list) end
+        return { mutes = list }
     end,
 })
 
@@ -261,14 +272,24 @@ registry.define("group_delete", {
 -- vehicles
 -- ---------------------------------------------------------------------------
 
+-- every vehicle of the target, or one of them (`vid`: the global vehicle id
+-- the client mod shows; it must be the target's own -- anyone else's is bad_arg)
 registry.define("car_delete", {
     perm = "car.delete", target = "player", rank = true, self = true,
+    shape = { vid = { type = "int", min = 0, optional = true } },
     fn = function(ctx)
-        local n = caps.delete_all(ctx.target.player)
+        local n
+        if ctx.data.vid ~= nil then
+            local ok = caps.delete_one(ctx.target.player, ctx.data.vid)
+            if not ok then return "bad_arg", { field = "vid" } end
+            n = 1
+        else
+            n = caps.delete_all(ctx.target.player)
+        end
         if ctx.target.pid ~= ctx.actor.pid then
             say.tell(ctx.target.player, "you.cars_deleted", { by = ctx.actor.name })
         end
-        return { target = target_info(ctx.target), deleted = n }
+        return { target = target_info(ctx.target), deleted = n, vid = ctx.data.vid }
     end,
 })
 
@@ -317,15 +338,17 @@ registry.define("vote_state", {
 -- the row the panel shows; `viewer` (an actor or a player) decides whether
 -- the address is shown: their own, or mod.ban and up -- masked otherwise
 function M.player_row(p, full, viewer)
+    local key = identity.key(p)
+    local muted, m = mutes.is_muted(key)
     local row = {
         pid = p.id, name = p.name, group = perms.group_of(p), level = perms.level_of(p),
         vehicles = p.vehicleCount or 0, ping = p.pingSeconds, connected = p.connectedSeconds,
         guest = identity.is_guest(p), verified = p.verified == true,
+        -- the panel's Mute / Unmute and Whitelist / Unwhitelist buttons follow these two
+        muted = muted == true, whitelisted = whitelist.has(key),
     }
     if full then
-        local key = identity.key(p)
         local rec = identity.record(key)
-        local muted, m = mutes.is_muted(key)
         local reveal = viewer == nil or viewer.console == true or (viewer.pid or viewer.id) == p.id or reveals(viewer)
         row.key = reveal and key or identity.mask_key(key)
         row.ip = reveal and p.ip or identity.mask_ip(p.ip)
@@ -420,6 +443,37 @@ registry.define("whoami", {
     fn = function(ctx)
         if ctx.actor.console then return { name = "console" } end
         return { me = M.player_row(ctx.actor.player, true, ctx.actor), perms = perms.perms_of(ctx.actor.player) }
+    end,
+})
+
+-- ---------------------------------------------------------------------------
+-- the panel's own state: shown / hidden and the UI scale, per identity key,
+-- the caller's own record only (no target, no permission: any player has a
+-- panel; the console has none)
+-- ---------------------------------------------------------------------------
+
+function M.ui_state(player)
+    return uistate.resolve(identity.key(player), settings.get("ui.default_shown") and perms.has(player, "players.view"))
+end
+
+registry.define("ui_get", {
+    audit = false,
+    fn = function(ctx)
+        if ctx.actor.console then return "console_cannot" end
+        return { ui = M.ui_state(ctx.actor.player) }
+    end,
+})
+
+registry.define("ui_set", {
+    shape = {
+        shown = { type = "bool", optional = true },
+        scale = { type = "number", min = 0, max = 100, optional = true },
+    }, audit = false,
+    fn = function(ctx)
+        if ctx.actor.console then return "console_cannot" end
+        if ctx.data.shown == nil and ctx.data.scale == nil then return "bad_arg", { field = "shown" } end
+        uistate.set(ctx.actor.key, { shown = ctx.data.shown, scale = ctx.data.scale })
+        return { ui = M.ui_state(ctx.actor.player) }
     end,
 })
 

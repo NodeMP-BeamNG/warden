@@ -35,7 +35,10 @@ M.SCHEMA = {
     ["limits.ui_per_min"] = { type = "int", default = 120, min = 1, max = 5000 },
     ["audit.enabled"] = { type = "bool", default = true },
     ["audit.retain_days"] = { type = "int", default = 90, min = 1, max = 3650 },
-    ["ui.key"] = { type = "string", default = "F9" },
+    ["spawn.enabled"] = { type = "bool", default = true, runtime = true },
+    ["ui.default_shown"] = { type = "bool", default = true, runtime = true },
+    ["ui.welcome"] = { type = "bool", default = true, runtime = true },
+    ["ui.theme"] = { type = "string", default = "cobalt", enum = { "cobalt", "game" }, runtime = true },
 }
 
 -- the keys in resource.toml order (config-doc and /settings list use it)
@@ -47,7 +50,8 @@ M.ORDER = {
     "votekick.cooldown_sec", "votekick.immune_level",
     "limits.commands_per_10s", "limits.ui_per_sec", "limits.ui_per_min",
     "audit.enabled", "audit.retain_days",
-    "ui.key",
+    "spawn.enabled",
+    "ui.default_shown", "ui.welcome", "ui.theme",
 }
 
 local function check_list(value, item)

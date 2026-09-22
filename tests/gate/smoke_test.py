@@ -6,6 +6,7 @@ wd:req without permission, and shuts down cleanly with the stores flushed.
 Ports 31200-31209.
 """
 import sys
+import time
 
 from harness import Client, Inbox, Server, TEST_HOOKS_ENV, check, err_code, info, probe, probe_data, require_server, \
     resource_version, result
@@ -26,7 +27,7 @@ def main():
         check(srv.lua_errors() == [], "no Lua errors at start", srv.lua_errors())
         data = srv.data()
         for name in ("groups.json", "players.json", "whitelist.json", "settings.json", "bans_meta.json",
-                     "votekick.json"):
+                     "votekick.json", "ui.json"):
             check(name in data, "data/%s written on first start" % name)
         check(set(data.get("groups.json", {}).keys()) == {"default", "trusted", "mod", "admin", "owner"},
               "groups.json carries the five default groups")
@@ -44,14 +45,19 @@ def main():
 
         m = a.chat("/help")
         lines = a.chat_lines(m)
-        check(lines and lines[0].startswith("8 command(s) you may use (panel key: F9)"), "/help header for default", lines)
-        check("/vote yes|no|cancel" in lines and "/wd" in lines and "/kick <player> [reason]" not in lines,
-              "the default group sees its commands only", lines)
+        check(lines and lines[0].startswith("9 command(s) you may use (/warden shows or hides the panel)"),
+              "/help header for default: no key, /warden", lines)
+        check("/vote yes|no|cancel" in lines and "/warden" in lines and "/wd" in lines
+              and "/kick <player> [reason]" not in lines, "the default group sees its commands only", lines)
+        check(not any("F9" in ln for ln in lines), "no F9 anywhere", lines)
 
-        # /wd: the panel toggle for a player whose key is taken -- one wd:event panel to the sender
+        # /warden (and its alias /wd): the panel toggle -- one wd:event panel to the sender
+        m = a.chat("/warden")
+        panel = a.events("panel", since=m)
+        check(len(panel) == 1 and panel[0].get("toggle") is True, "/warden sends wd:event panel", panel)
         m = a.chat("/wd")
         panel = a.events("panel", since=m)
-        check(len(panel) == 1 and panel[0].get("toggle") is True, "/wd sends wd:event panel", panel)
+        check(len(panel) == 1 and panel[0].get("toggle") is True, "/wd is the alias", panel)
 
         m = a.chat("/kick Alice")
         lines = a.chat_lines(m)
@@ -63,9 +69,22 @@ def main():
 
         reply = a.request("players.list")
         check(err_code(reply) == "denied", "wd:req players.list without players.view: denied", reply)
+        m = a.mark()
         reply = a.hello()
-        check(reply.get("ok") is True and reply["data"]["me"]["group"] == "default" and reply["data"]["key"] == "F9",
-              "sys.hello answers the record", reply)
+        d = reply.get("data") or {}
+        check(reply.get("ok") is True and d.get("me", {}).get("group") == "default" and "key" not in d,
+              "sys.hello answers the record, no key", reply)
+        check(d.get("protocol") == 2 and d.get("ui") == {"shown": False, "scale": 1.0, "theme": "cobalt"},
+              "protocol 2: a plain player's panel is hidden by default", d.get("ui"))
+        check(d.get("status", {}).get("spawn") is True and d["status"]["whitelist"] is False
+              and d["status"]["players"] == 1 and d["status"]["max_players"] == 16,
+              "the status chips", d.get("status"))
+        check(d.get("server", {}).get("max_cars") == 10 and d["server"]["max_players"] == 16
+              and isinstance(d["server"].get("name"), str), "the server facts", d.get("server"))
+        time.sleep(0.5)
+        texts = [x.get("text") if isinstance(x, dict) else x for x in a.all("chat:msg", m)]
+        check(not any("/warden shows or hides" in (ln or "") for ln in texts),
+              "no welcome line for a player without players.view", texts)
 
         # the join was recorded; stop flushes the stores
         rec = probe(alice, "record")

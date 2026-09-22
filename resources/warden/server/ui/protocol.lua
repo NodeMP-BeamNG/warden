@@ -4,7 +4,7 @@
 --   client -> server  wd:req    { id = <int>, op = "<domain>.<verb>", data = {...} }
 --   server -> client  wd:reply  { id, ok = true, data } | { id, ok = false, error = { code, params } }
 --   server -> client  wd:event  { ev = "players.changed" | "groups.changed" | "vote.state" | "notice"
---                                | "settings.changed", data }
+--                                | "settings.changed" | "status" | "panel", data }
 --
 -- Order of checks on a frame: the limiter (junk counts), the envelope (id an
 -- integer, op a string), the op is known (ui.ops), then commands.registry.run
@@ -23,7 +23,7 @@ local util = require("core.util")
 
 local M = {}
 
-M.PROTOCOL = 1
+M.PROTOCOL = 2   -- 2: hello carries ui / server / status and no key (0.2.0)
 M.EVENTS = { req = "wd:req", reply = "wd:reply", event = "wd:event" }
 M.MAX_FRAME = 16 * 1024
 

@@ -2,6 +2,9 @@
 # Packs the release archive: dist/warden-<version>.zip (+ .sha256) with
 #   resources/warden/      the server resource with its client/ half -- the panel the
 #                          server streams to every player (without data/ and dev/ probes)
+#   content/warden.zip     the client content zip built here from content/warden/: the
+#                          bindable game action "Toggle Warden panel" (the server's content/
+#                          folder delivers it to the players through the launcher)
 #   LICENSE NOTICE         the licence and the notices (GPL section 4: every copy carries them)
 #   README.md README.ru.md CHANGELOG.md
 #   docs/                  the hoster documentation (dev.md excluded)
@@ -44,6 +47,15 @@ if [[ -d "$root/docs" ]]; then
   rm -f "$stage/docs/dev.md"
 fi
 
+# the client content zip: the game action (content/warden/ -> content/warden.zip)
+content_src="$root/content/warden"
+[[ -f "$content_src/lua/ge/extensions/core/input/actions/warden.json" ]] \
+  || { echo "pack: content/warden/ carries no input action; the archive must ship content/warden.zip" >&2; exit 1; }
+mkdir -p "$stage/content"
+(cd "$content_src" && find . -type f | sed 's|^\./||' | LC_ALL=C sort | zip -q -X -D "$stage/content/warden.zip" -@)
+[[ "$(unzip -Z1 "$stage/content/warden.zip" | wc -l)" -ge 2 ]] \
+  || { echo "pack: content/warden.zip is missing the action or the modScript" >&2; exit 1; }
+
 # one entry per file, no directory entries (-D), stable order
 (cd "$stage" && find . -type f | sed 's|^\./||' | LC_ALL=C sort | zip -q -X -D "$zip_path" -@)
 
@@ -52,5 +64,7 @@ if unzip -Z1 "$zip_path" | grep -E '\\|/$' >/dev/null; then
   rm -f "$zip_path"
   exit 1
 fi
+unzip -Z1 "$zip_path" | grep -qx 'content/warden.zip' \
+  || { echo "pack: the archive carries no content/warden.zip" >&2; rm -f "$zip_path"; exit 1; }
 (cd "$out" && sha256sum "warden-$version.zip" > "warden-$version.zip.sha256")
 echo "$zip_path"

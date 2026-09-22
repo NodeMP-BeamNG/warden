@@ -1,4 +1,4 @@
--- luacheck configuration: `luacheck resources tests tools`
+-- luacheck configuration: `luacheck resources content tests tools`
 std = "lua54"
 max_line_length = 120
 codes = true
@@ -16,7 +16,16 @@ files["resources/warden/client/**/*.lua"] = {
     -- the client half runs in the game's LuaJIT (Lua 5.1); `node` is the client table there
     std = "luajit",
     globals = { "nodemp_wd" },
-    read_globals = { "ui_imgui", "jsonEncode", "jsonDecode", "log", "settings", "ffi", "NodeMP" },
+    read_globals = {
+        "ui_imgui", "jsonEncode", "jsonDecode", "log", "settings", "ffi", "NodeMP", "be", "extensions",
+        "core_input_categories", "core_environment",
+    },
+}
+
+files["content/**/*.lua"] = {
+    -- the content zip's modScript runs in the game's LuaJIT at mount time
+    std = "luajit",
+    read_globals = { "extensions", "log" },
 }
 
 files["resources/warden/client/warden/lang.lua"] = {

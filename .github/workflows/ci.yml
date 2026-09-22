@@ -2,7 +2,7 @@ name: ci
 
 # GitHub Actions is billing-blocked for the organisation at the time of
 # writing; the workflow is kept current so it runs the day it is enabled.
-# Locally: `luacheck resources tests tools`, `lua tests/unit/run.lua`,
+# Locally: `luacheck resources content tests tools`, `lua tests/unit/run.lua`,
 # `lua tools/lang-check.lua`, `lua tools/lang-gen.lua --check`,
 # `lua tools/config-doc.lua --check README.md`, `tools/get-server.ps1` then
 # `python tests/gate/<name>_test.py`. The client half (the imgui panel) is
@@ -48,7 +48,19 @@ jobs:
           luacheck --version
 
       - name: luacheck
-        run: luacheck resources tests tools
+        run: luacheck resources content tests tools
+
+      - name: The content zip's action JSON parses and calls the guarded global
+        run: |
+          python3 - <<'EOF'
+          import json
+          a = json.load(open("content/warden/lua/ge/extensions/core/input/actions/warden.json"))
+          act = a["toggleWarden"]
+          assert act["cat"] == "warden" and act["ctx"] == "tlua", act
+          assert act["onDown"].startswith("if nodemp_wd then"), act["onDown"]
+          assert "settings/inputmaps" not in str(a), "no default binding ships with the action"
+          print("warden.json ok")
+          EOF
 
       - name: Unit tests
         run: lua5.4 tests/unit/run.lua
@@ -123,6 +135,13 @@ jobs:
           unzip -l dist/warden-*.zip
           unzip -l dist/warden-*.zip | grep -q 'resources/warden/client/warden/panel.lua' \
             || { echo "::error::the archive carries no client half"; exit 1; }
+          unzip -Z1 dist/warden-*.zip | grep -qx 'content/warden.zip' \
+            || { echo "::error::the archive carries no content/warden.zip (the game action)"; exit 1; }
+          unzip -p dist/warden-*.zip content/warden.zip > /tmp/warden-content.zip
+          unzip -Z1 /tmp/warden-content.zip | grep -qx 'lua/ge/extensions/core/input/actions/warden.json' \
+            || { echo "::error::content/warden.zip carries no input action"; exit 1; }
+          unzip -Z1 /tmp/warden-content.zip | grep -qx 'scripts/warden/modScript.lua' \
+            || { echo "::error::content/warden.zip carries no modScript"; exit 1; }
           for top in LICENSE NOTICE README.md README.ru.md CHANGELOG.md; do
             unzip -Z1 dist/warden-*.zip | grep -qx "$top" \
               || { echo "::error::the archive carries no $top at its root"; exit 1; }

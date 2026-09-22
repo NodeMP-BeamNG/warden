@@ -16,11 +16,16 @@ tests.config_coerces_and_bounds = function()
     t.eq(config.coerce(config.SCHEMA["owner_ids"], { 1, "2" }), { 1, 2 })
     t.eq(config.coerce(config.SCHEMA["owner_ids"], { "x" }), nil)
     t.eq(config.coerce(config.SCHEMA["language"], "de"), nil)
-    local cfg, warnings = config.load({ votekick = { min_players = 1 }, ui = { key = "F7" } })
+    local cfg, warnings = config.load({ votekick = { min_players = 1 }, ui = { theme = "game", welcome = false } })
     t.eq(#warnings, 1)
     t.eq(cfg.votekick.min_players, 4)
-    t.eq(cfg.ui.key, "F7")
+    t.eq(cfg.ui.theme, "game")
+    t.eq(cfg.ui.welcome, false)
+    t.eq(cfg.ui.default_shown, true)
+    t.eq(cfg.spawn.enabled, true)
     t.eq(cfg.limits.ui_per_min, 120)
+    t.eq(config.coerce(config.SCHEMA["ui.theme"], "pink"), nil, "the theme is one of cobalt / game")
+    t.eq(cfg.ui.key, nil, "no fixed key since 0.2.0")
 end
 
 -- store -------------------------------------------------------------------------

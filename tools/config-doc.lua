@@ -56,7 +56,13 @@ local DESCRIPTIONS = {
         ["limits.ui_per_min"] = "`wd:req` frames one client may send per minute.",
         ["audit.enabled"] = "Write `data/audit/YYYY-MM-DD.jsonl`.",
         ["audit.retain_days"] = "Audit files older than this are removed at start.",
-        ["ui.key"] = "The key that opens the panel, a Dear ImGui key name (`F9`, `F7`); `/wd` toggles it too.",
+        ["spawn.enabled"] = "Vehicle spawning for players without `car.cap.bypass`; the panel's "
+            .. "\"Disable spawning\" flips it.",
+        ["ui.default_shown"] = "The panel opens by itself when a player with `players.view` joins, until they hide "
+            .. "it (remembered per player in `data/ui.json`).",
+        ["ui.welcome"] = "One chat line for staff at their first hello: `/warden` toggles the panel, a key can be "
+            .. "bound in Options > Controls > Warden.",
+        ["ui.theme"] = "`cobalt`: the translucent blue window style; `game`: the game's own Dear ImGui colours.",
     },
     ru = {
         ["language"] = "Язык сообщений сервера (`en` / `ru`); игрок выбирает свой командой `/lang`.",
@@ -81,7 +87,13 @@ local DESCRIPTIONS = {
         ["limits.ui_per_min"] = "Сколько кадров `wd:req` клиент может послать в минуту.",
         ["audit.enabled"] = "Писать `data/audit/YYYY-MM-DD.jsonl`.",
         ["audit.retain_days"] = "Файлы аудита старше этого удаляются при старте.",
-        ["ui.key"] = "Клавиша панели: имя клавиши Dear ImGui (`F9`, `F7`, `Insert`); `/wd` в чате тоже переключает её.",
+        ["spawn.enabled"] = "Спавн машин для игроков без `car.cap.bypass`; кнопка «Выключить спавн» в панели "
+            .. "переключает его.",
+        ["ui.default_shown"] = "Панель открывается сама при входе игрока с `players.view`, пока он её не скроет "
+            .. "(запоминается на игрока в `data/ui.json`).",
+        ["ui.welcome"] = "Одна строка в чат персоналу при первом hello: `/warden` переключает панель, клавиша "
+            .. "назначается в Options > Controls > Warden.",
+        ["ui.theme"] = "`cobalt` — полупрозрачный синий стиль окна; `game` — родные цвета Dear ImGui игры.",
     },
 }
 

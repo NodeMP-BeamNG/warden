@@ -60,19 +60,61 @@ def main():
         probe(alice, "group.set", {"group": "admin"})
 
         info("--- hello ---")
-        r = a.hello(lang="ru")
+        m = a.mark()
+        r = a.hello(lang="ru", protocol=2)
         check(r.get("ok") is True, "sys.hello ok", r)
         d = r.get("data") or {}
-        check(d.get("protocol") == 1 and d.get("key") == "F9" and d.get("lang") == "ru", "protocol, key, lang", d)
+        check(d.get("protocol") == 2 and "key" not in d and d.get("lang") == "ru", "protocol 2, no key, lang", d)
         check(d.get("me", {}).get("group") == "admin" and d["me"]["level"] == 90 and d["me"]["pid"] == alice.id,
               "the record", d.get("me"))
+        check(d["me"].get("muted") is False and d["me"].get("whitelisted") is False, "the row's mute / whitelist flags")
         check("mod.kick" in d.get("perms", []) and "perms.manage" not in d["perms"], "the effective perms", d.get("perms"))
         check(any(p[0] == "perms.manage" for p in d.get("permissions", [])), "the permission catalogue")
         check(d.get("vote") is None, "no vote running")
-        r = b.hello(protocol=7)
-        check(err_code(r) == "ui_outdated" and r["error"]["params"]["server"] == 1, "a wrong protocol is refused", r)
-        r = b.hello()
+        check(d.get("ui") == {"shown": True, "scale": 1.0, "theme": "cobalt"}, "shown by default for staff", d.get("ui"))
+        check(d.get("default_group") == "default", "the default group for the Remove button")
+        st = d.get("status") or {}
+        check(st.get("spawn") is True and st.get("whitelist") is False and st.get("guests") is True
+              and st.get("votekick") is False and st.get("players") == 2 and st.get("max_players") == 16
+              and st.get("cars") == 0 and st.get("max_cars") == 10, "the status chips", st)
+        sv = d.get("server") or {}
+        check(sv.get("max_players") == 16 and sv.get("max_cars") == 10 and isinstance(sv.get("version"), str),
+              "the server facts", sv)
+        welcome = a.wait("chat:msg", lambda x: isinstance(x, dict) and "/warden" in x.get("text", ""), 5, m)
+        check(welcome is not None and "Options > Controls > Warden" in welcome["text"],
+              "the welcome line for staff at the first hello", welcome)
+        m = a.mark()
+        a.hello(lang="ru", protocol=2)
+        time.sleep(0.5)
+        check(not any(isinstance(x, dict) and "/warden" in x.get("text", "") for x in a.all("chat:msg", m)),
+              "no second welcome in the session")
+        r = b.hello(protocol=1)
+        check(err_code(r) == "ui_outdated" and r["error"]["params"]["server"] == 2 and r["error"]["params"]["ui"] == 1,
+              "the 0.1.0 protocol is refused", r)
+        m = b.mark()
+        r = b.hello(protocol=2)
         check(r.get("ok") is True and r["data"]["me"]["group"] == "default", "Bob's hello", r)
+        check(r["data"]["ui"]["shown"] is False, "hidden by default without players.view", r["data"]["ui"])
+        time.sleep(0.5)
+        check(not any(isinstance(x, dict) and "/warden" in x.get("text", "") for x in b.all("chat:msg", m)),
+              "no welcome for a plain player")
+
+        info("--- ui.get / ui.set: the caller's own state ---")
+        r = b.request("ui.get")
+        check(r.get("ok") is True and r["data"]["ui"] == {"shown": False, "scale": 1.0}, "ui.get", r)
+        r = b.request("ui.set", {"shown": True, "scale": 4})
+        check(r.get("ok") is True and r["data"]["ui"] == {"shown": True, "scale": 1.5}, "ui.set clamps the scale", r)
+        r = b.request("ui.set", {"scale": 0.5})
+        check(r.get("ok") is True and r["data"]["ui"]["scale"] == 0.75, "the lower bound", r)
+        r = b.request("ui.set", {})
+        check(err_code(r) == "bad_arg", "nothing to set", r)
+        r = b.request("ui.set", {"scale": "big"})
+        check(err_code(r) == "bad_arg", "a bad scale", r)
+        r = b.hello(protocol=2)
+        check(r["data"]["ui"] == {"shown": True, "scale": 0.75, "theme": "cobalt"}, "the hello carries it back", r["data"]["ui"])
+        ui_file = srv.data("ui.json") or {}
+        check(ui_file.get("ip:" + BOB, {}).get("shown") is True and ui_file["ip:" + BOB]["scale"] == 0.75
+              and "ip:" + ALICE not in ui_file, "data/ui.json holds the caller's record only", ui_file)
 
         info("--- players ---")
         r = b.request("players.list")
@@ -116,8 +158,18 @@ def main():
         check(got is not None, "Carl was told in the chat", got)
         r = a.request("mod.mute", {"pid": carl.id, "duration": 600, "reason": "spam"})
         check(r.get("ok") is True and r["data"]["duration"] == 600, "mod.mute", r)
+        r = b.request("mod.mutes")
+        check(err_code(r) == "denied", "mod.mutes needs mod.mute", r)
+        r = a.request("mod.mutes")
+        mutes = r.get("data", {}).get("mutes", [])
+        check(r.get("ok") is True and len(mutes) == 1 and mutes[0]["key"] == "ip:" + CARL and mutes[0]["reason"] == "spam",
+              "mod.mutes lists the mute in force", r)
+        r = a.request("players.list")
+        check(any(p["name"] == "Carl" and p.get("muted") is True for p in r["data"]["players"]),
+              "the row says muted (the Mute / Unmute button)", r)
         r = a.request("mod.unmute", {"pid": carl.id})
         check(r.get("ok") is True, "mod.unmute", r)
+        check(not a.request("mod.mutes")["data"]["mutes"], "nobody muted any more (an empty table encodes as {})")
         r = a.request("mod.mute", {"pid": carl.id, "duration": 5})
         check(err_code(r) == "bad_arg" and r["error"]["params"]["field"] == "duration", "shape: duration >= 60", r)
         r = a.request("groups.set", {"pid": carl.id, "group": "mod"})
@@ -126,6 +178,20 @@ def main():
         check(err_code(r) == "group_too_high", "not your own level", r)
         r = a.request("car.delete", {"pid": carl.id})
         check(err_code(r) == "outranked" or r.get("ok") is True, "car.delete on a mod by an admin: allowed", r)
+        r = a.request("car.delete", {"pid": carl.id, "vid": 424242})
+        check(err_code(r) == "bad_arg" and r["error"]["params"]["field"] == "vid", "a vehicle that is not the target's", r)
+
+        info("--- spawn.enabled: the server-wide toggle ---")
+        m = a.mark()
+        r = a.request("settings.set", {"key": "spawn.enabled", "value": False})
+        check(r.get("ok") is True and r["data"]["value"] is False, "spawning off", r)
+        st = a.wait("wd:event", lambda e: isinstance(e, dict) and e.get("ev") == "status", 5, m)
+        check(st is not None and st["data"]["spawn"] is False and st["data"]["players"] == 3,
+              "status pushed to the panels", st)
+        check(b.wait("wd:event", lambda e: isinstance(e, dict) and e.get("ev") == "status", 3) is not None,
+              "Bob's panel (no players.view) gets the status too")
+        r = a.request("settings.set", {"key": "spawn.enabled", "value": True})
+        check(r.get("ok") is True, "spawning on again", r)
         m = a.mark()
         r = a.request("mod.kick", {"pid": carl.id, "reason": "bye"})
         check(r.get("ok") is True, "mod.kick from the panel", r)
@@ -186,7 +252,14 @@ def main():
         check(err_code(r) == "denied", "settings.read", r)
         r = a.request("settings.list")
         keys = [s["key"] for s in r.get("data", {}).get("settings", [])]
-        check("votekick.threshold" in keys and "ui.key" not in keys, "the runtime keys", keys)
+        check("votekick.threshold" in keys and "limits.ui_per_sec" not in keys and "ui.theme" in keys
+              and "ui.default_shown" in keys and "ui.welcome" in keys and "spawn.enabled" in keys, "the runtime keys", keys)
+        m = a.mark()
+        r = a.request("settings.set", {"key": "ui.theme", "value": "game"})
+        check(r.get("ok") is True, "the theme is a runtime setting", r)
+        st = a.wait("wd:event", lambda e: isinstance(e, dict) and e.get("ev") == "status", 5, m)
+        check(st is not None and st["data"]["theme"] == "game", "the theme travels in the status push", st)
+        a.request("settings.reset", {"key": "ui.theme"})
         m = a.mark()
         r = a.request("settings.set", {"key": "votekick.threshold", "value": 0.75})
         check(r.get("ok") is True and r["data"]["value"] == 0.75, "settings.set", r)

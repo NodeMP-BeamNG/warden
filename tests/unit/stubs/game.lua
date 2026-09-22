@@ -15,10 +15,13 @@
 --   G.im.pick("##duration", 1)                   a Combo1 choice (0-based)
 --   G.im.check("##v", false) / G.im.int("##v", 5) / G.im.float("##v", 0.7)
 --   G.im.tab = "Players"                         the tab BeginTabItem says is selected
---   G.im.press(G.im.Key_F9)                      a key IsKeyPressed reports once
+--   G.im.collapse("Bans") / G.im.expand("Bans")  a CollapsingHeader1 / TreeNode1 closed or open (open by default)
+--   G.im.hover("Teleport To")                    IsItemHovered is true for that item (its tooltip is drawn)
 --   G.im.frame(dt)                               one onUpdate of bridge + panel, with the balance checks
---   G.im.shown() -> { text, ... }                 every text drawn in the last frame
+--   G.im.shown() -> { text, ... }                 every text drawn in the last frame (tooltips included)
 --   G.im.buttons() -> { label -> { disabled } }   the buttons of the last frame, keyed "idpath/label" and "label"
+--   G.im.headers() -> { label, ... }              the collapsing headers of the last frame (the visible part)
+--   G.im.styles                                  PushStyleColor2 calls of the last frame: { { col, vec4 }, ... }
 
 local sep = package.config:sub(1, 1)
 local json = require("json")
@@ -35,7 +38,16 @@ local FLAGS = {
     "WindowFlags_NoMove", "WindowFlags_NoSavedSettings", "WindowFlags_NoFocusOnAppearing", "TableFlags_RowBg",
     "TableFlags_BordersInnerV", "TableFlags_ScrollY", "TableFlags_Resizable", "TableColumnFlags_WidthFixed",
     "TableColumnFlags_WidthStretch", "SelectableFlags_SpanAllColumns", "Cond_FirstUseEver", "Cond_Always",
+    "TreeNodeFlags_DefaultOpen", "HoveredFlags_AllowWhenDisabled",
 }
+
+-- the visible part of a label: "Bob  ·  default (0)###p2" -> "Bob  ·  default (0)", "##reason" -> ""
+local function visible(label)
+    label = tostring(label)
+    local cut = label:find("###", 1, true) or label:find("##", 1, true)
+    if cut then return label:sub(1, cut - 1) end
+    return label
+end
 
 local function make_imgui(game)
     local im = { TabBarFlags_None = 0 }
@@ -43,14 +55,31 @@ local function make_imgui(game)
     for i = 1, 12 do im["Key_F" .. i] = 500 + i end
     im.Key_Insert = 520
     im.Key_Escape = 521
+    -- every Col_* name is a colour slot; the numbers only have to be distinct
+    local colours = {}
+    setmetatable(im, { __index = function(_, k)
+        if type(k) == "string" and k:sub(1, 4) == "Col_" then
+            if colours[k] == nil then
+                local n = 0
+                for _ in pairs(colours) do n = n + 1 end
+                colours[k] = 1000 + n
+            end
+            return colours[k]
+        end
+        return nil
+    end })
 
     -- scripted input, consumed by the widget that matches
-    local clicks, texts, picks, checks, ints, floats, pressed = {}, {}, {}, {}, {}, {}, {}
+    local clicks, texts, picks, checks, ints, floats, pressed, hovers = {}, {}, {}, {}, {}, {}, {}, {}
+    local closed = {}   -- visible header / tree label -> true when the test collapsed it
     local id_stack = {}
-    local depth = { window = 0, table = 0, tabbar = 0, tabitem = 0, disabled = 0 }
-    local last = { texts = {}, buttons = {}, tabs = {} }
+    local depth = { window = 0, table = 0, tabbar = 0, tabitem = 0, disabled = 0, child = 0, tree = 0, indent = 0,
+        itemwidth = 0, style = 0, tooltip = 0 }
+    local last = { texts = {}, buttons = {}, tabs = {}, headers = {} }
+    local last_item = nil   -- the path of the item drawn last, for IsItemHovered
 
     im.calls = {}
+    im.styles = {}
     im.tab = nil
 
     local function rec(name, ...)
@@ -77,6 +106,10 @@ local function make_imgui(game)
         return false
     end
 
+    local function item(label)
+        last_item = { path = path(label), label = label }
+    end
+
     function im.click(label) clicks[label] = true end
     function im.type(label, text) texts[label] = text end
     function im.pick(label, idx) picks[label] = idx end
@@ -84,9 +117,13 @@ local function make_imgui(game)
     function im.int(label, v) ints[label] = v end
     function im.float(label, v) floats[label] = v end
     function im.press(key) pressed[key] = true end
+    function im.hover(label) hovers[label] = true end
+    function im.collapse(label) closed[label] = true end
+    function im.expand(label) closed[label] = nil end
     function im.shown() return last.texts end
     function im.buttons() return last.buttons end
     function im.tabs() return last.tabs end
+    function im.headers() return last.headers end
     function im.unconsumed()
         local out = {}
         for label in pairs(clicks) do out[#out + 1] = "click " .. label end
@@ -97,7 +134,9 @@ local function make_imgui(game)
 
     function im.begin_frame()
         im.calls = {}
-        last = { texts = {}, buttons = {}, tabs = {} }
+        im.styles = {}
+        last = { texts = {}, buttons = {}, tabs = {}, headers = {} }
+        last_item = nil
     end
 
     function im.end_frame()
@@ -109,6 +148,7 @@ local function make_imgui(game)
 
     local function button(kind, label)
         rec(kind, label)
+        item(label)
         local disabled = depth.disabled > 0
         local entry = { disabled = disabled, kind = kind }
         last.buttons[path(label)] = entry
@@ -135,7 +175,14 @@ local function make_imgui(game)
     -- windows
     im.SetNextWindowPos = function(...) rec("SetNextWindowPos", ...) end
     im.SetNextWindowSize = function(...) rec("SetNextWindowSize", ...) end
+    im.SetNextWindowBgAlpha = function(a) rec("SetNextWindowBgAlpha", a) end
+    im.SetWindowFontScale = function(s) rec("SetWindowFontScale", s) end
     im.SetNextItemWidth = function(w) rec("SetNextItemWidth", w) end
+    im.PushItemWidth = function(w)
+        rec("PushItemWidth", w)
+        depth.itemwidth = depth.itemwidth + 1
+    end
+    im.PopItemWidth = function() depth.itemwidth = depth.itemwidth - 1 end
     im.Begin = function(name, p_open, flags)
         rec("Begin", name, p_open, flags)
         depth.window = depth.window + 1
@@ -144,6 +191,63 @@ local function make_imgui(game)
     im.End = function()
         rec("End")
         depth.window = depth.window - 1
+    end
+    im.BeginChild1 = function(id, size, border)
+        rec("BeginChild1", id, size, border)
+        depth.child = depth.child + 1
+        return true
+    end
+    im.EndChild = function() depth.child = depth.child - 1 end
+
+    -- style
+    im.PushStyleColor2 = function(col, vec)
+        im.styles[#im.styles + 1] = { col, vec }
+        depth.style = depth.style + 1
+    end
+    im.PopStyleColor = function(n)
+        depth.style = depth.style - (n or 1)
+        if depth.style < 0 then error("PopStyleColor below zero") end
+    end
+
+    -- headers and trees (open unless the test collapsed them)
+    im.CollapsingHeader1 = function(label, flags)
+        rec("CollapsingHeader1", label, flags)
+        item(label)
+        local v = visible(label)
+        last.headers[#last.headers + 1] = v
+        shown(v)
+        return closed[v] ~= true
+    end
+    im.TreeNode1 = function(label)
+        rec("TreeNode1", label)
+        item(label)
+        local v = visible(label)
+        shown(v)
+        if closed[v] then return false end
+        depth.tree = depth.tree + 1
+        return true
+    end
+    im.TreePop = function()
+        depth.tree = depth.tree - 1
+        if depth.tree < 0 then error("TreePop without TreeNode") end
+    end
+    im.Indent = function() depth.indent = depth.indent + 1 end
+    im.Unindent = function() depth.indent = depth.indent - 1 end
+
+    -- tooltips: only for the item the test hovers
+    im.IsItemHovered = function()
+        if last_item == nil then return false end
+        return hovers[last_item.path] == true or hovers[last_item.label] == true
+    end
+    im.BeginTooltip = function()
+        rec("BeginTooltip")
+        depth.tooltip = depth.tooltip + 1
+    end
+    im.EndTooltip = function() depth.tooltip = depth.tooltip - 1 end
+    im.SetTooltip = function(fmt, ...)
+        local s = select("#", ...) > 0 and string.format(fmt, ...) or fmt
+        rec("SetTooltip", s)
+        shown(s)
     end
 
     -- tabs
@@ -211,10 +315,12 @@ local function make_imgui(game)
     im.SmallButton = function(label) return button("SmallButton", label) end
     im.Selectable1 = function(label, selected, flags)
         rec("Selectable1", label, selected, flags)
+        item(label)
         return (consume(clicks, label))
     end
     im.InputText = function(label, buf, size, flags)
         rec("InputText", label, size, flags)
+        item(label)
         local hit, v = consume(texts, label)
         if hit then
             if #v > (size or #v) then error("typed text longer than the buffer for " .. label) end
@@ -224,6 +330,7 @@ local function make_imgui(game)
     end
     im.Combo1 = function(label, ptr, list, n)
         rec("Combo1", label, list, n)
+        item(label)
         local hit, v = consume(picks, label)
         if hit then
             if v < 0 or v >= n then error("combo index " .. v .. " out of range for " .. label) end
@@ -233,23 +340,29 @@ local function make_imgui(game)
     end
     im.Checkbox = function(label, ptr)
         rec("Checkbox", label)
+        item(label)
         local hit, v = consume(checks, label)
         if hit then ptr[0] = v end
         return hit
     end
     im.InputInt = function(label, ptr, ...)
         rec("InputInt", label, ...)
+        item(label)
         local hit, v = consume(ints, label)
         if hit then ptr[0] = v end
         return hit
     end
     im.InputFloat = function(label, ptr, ...)
         rec("InputFloat", label, ...)
+        item(label)
         local hit, v = consume(floats, label)
         if hit then ptr[0] = v end
         return hit
     end
+    -- the game feeds keys to imgui; the panel does not read them any more (0.2.0), the
+    -- fake keeps the call so a test can prove nothing listens
     im.IsKeyPressed = function(key)
+        rec("IsKeyPressed", key)
         if pressed[key] then
             pressed[key] = nil
             return true

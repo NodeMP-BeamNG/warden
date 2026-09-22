@@ -12,8 +12,8 @@
 --                                          answers { code = "timeout" }
 --   bridge.on(name, fn) -> unsubscribe     "session" (the hello record), "event" (every wd:event),
 --                                          and each ev by name: "players.changed", "groups.changed",
---                                          "settings.changed", "vote.state", "notice", "panel";
---                                          "outdated", "connected"
+--                                          "settings.changed", "status", "vote.state", "notice",
+--                                          "panel"; "outdated", "connected"
 --   bridge.hello()                          sys.hello { protocol, uiVersion, lang }; retried while the
 --                                          server has not answered (its join is still completing)
 --   bridge.getState() -> { session, connected, hello, outdated, vote }
@@ -25,8 +25,8 @@
 
 local M = {}
 
-M.VERSION = "0.1.0"
-M.PROTOCOL = 1
+M.VERSION = "0.2.0"
+M.PROTOCOL = 2
 M.TIMEOUT_S = 10
 M.HELLO_RETRY_S = 2
 M.HELLO_MAX_TRIES = 30

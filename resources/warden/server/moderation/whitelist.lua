@@ -15,6 +15,7 @@
 --                                              guest_by_name / ambiguous, as the commands do)
 --   whitelist.remove(entry) -> entry, err, params    an entry as listed, or what add() takes
 --   whitelist.list() -> array { entry, by, at }
+--   whitelist.has(key) -> bool                the key itself is listed (a name: entry does not count)
 --   whitelist.enabled() -> bool
 
 local store = require("core.store")
@@ -106,6 +107,10 @@ function M.remove(entry)
     file.data.entries[norm] = nil
     file:mark()
     return norm
+end
+
+function M.has(key)
+    return type(key) == "string" and file ~= nil and file.data.entries[key] ~= nil
 end
 
 function M.list()
