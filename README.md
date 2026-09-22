@@ -3,9 +3,10 @@
 Server administration for [NodeMP](https://docs.nodemp.com): groups with
 levels and named permissions, kick / ban / temp-ban / whitelist / mute /
 warn, a vehicle cap per group, vote-kick, chat commands in English and
-Russian, an audit log, and the `wd:req` protocol the in-game panel
-[warden-ui](https://github.com/NodeMP-BeamNG/warden-ui) talks. Everything
-is decided on the server; the panel only shows and asks.
+Russian, an audit log, and an in-game admin panel (F9) drawn with the
+game's Dear ImGui and streamed to every player by the server -- nothing to
+install on the player's side. Everything is decided on the server; the
+panel only shows and asks.
 
 [Русская версия](README.ru.md) · Licence: GPL-3.0-or-later ([LICENSE](LICENSE), [NOTICE](NOTICE))
 
@@ -17,9 +18,10 @@ is decided on the server; the panel only shows and asks.
 2. Install the `chat` resource (`examples/chat` in the server archive) beside
    it: warden takes its commands from the chat resource's bus event and
    answers through it. Without a chat resource set `chat_fallback = true`.
-3. Optional, the panel: unzip `warden-ui-<version>.zip` at the same root. It
-   adds `resources/warden/client/warden/*.lua` (streamed to every joining
-   player) and `content/warden-ui.zip` (the BeamNG UI apps). F9 opens it.
+3. The panel needs nothing more: `resources/warden/client/warden/*.lua` is
+   in the same archive and the server streams it to every joining player.
+   **F9** opens and closes it (`ui.key` in the config names another key);
+   `/wd` in the chat does the same for a player whose F9 is taken.
 4. Put your directory account id into `owner_ids` in
    `resources/warden/resource.toml`, or rely on `directory_admin_is_owner`
    (a directory `ADM` is an owner). Start the server; the log says
@@ -64,6 +66,7 @@ prefix of a name seen before), `#<id>` for a connected player, or a key
 | Command | Permission | What it does |
 |---|---|---|
 | `/help`, `/version`, `/whoami`, `/lang en\|ru` | — | Your commands, the version, your record, your language |
+| `/wd` | — | Show or hide the panel (same as F9) |
 | `/players` | `players.view` | Who is online, with group and level |
 | `/kick <player> [reason]` | `mod.kick` | Disconnects with the reason |
 | `/ban <player> [reason]` | `mod.ban` | Permanent ban (account when verified, IP always) via the server's ban list |
@@ -84,6 +87,32 @@ Mute is advisory until the platform has a cancellable chat event (server
 issue #43): warden cannot stop the `chat` resource from relaying a line, so
 a muted player is told they are muted on every line instead. Once the event
 exists, set `chat_veto_event` to its name and the lines are dropped.
+
+## The panel
+
+**F9** (or `/wd`) opens the `Warden` window; what it shows follows the
+player's permissions, and a button the rank rule would refuse is greyed --
+the server checks again on every request and its refusal is printed where
+the button was.
+
+| Tab | Needs | Shows |
+|---|---|---|
+| Players | `players.view` | Everyone online with id, account state, group, cars, ping, time online; a selected player's record (key, IP, joins, warnings, mute, limit) and the actions: kick, warn, mute, unmute, temp-ban, ban, set group, delete cars, whitelist, vote-kick -- with an inline form for the reason, the duration (30m / 2h / 1d / 7d / custom) and the group |
+| Groups | -- | The groups with level, inheritance, cap and permissions (read-only; a player's group is set from the Players tab) |
+| Settings | `settings.read` (+ `settings.write` to change) | The runtime settings with typed inputs (checkbox, number, choice) and a Reset where a value differs from `resource.toml` |
+| Audit | `audit.view` | The last N audit rows |
+| Bans | `mod.ban` | The bans with an Unban button |
+
+A running vote-kick shows a banner at the top of the screen with the count,
+the seconds left and Yes / No (`votekick.vote`) or Cancel (`votekick.cancel`)
+for everyone with the permission, whether the window is open or not. The
+panel speaks the language `/lang` set (or the server's), switchable from the
+window; the texts come from the same `lang/*.json` as the chat lines.
+
+The panel is plain Lua drawn with the game's Dear ImGui, streamed at every
+join and gone when the player leaves; it never receives code from the
+server, only JSON data. A text field of the panel does not take the
+keyboard away from the car yet -- stop before typing a reason.
 
 ## Configuration
 
@@ -114,7 +143,7 @@ Keys marked runtime can be changed with `/settings set` (kept in
 | `limits.ui_per_min` | int 1..5000 | `120` |  | `wd:req` frames one client may send per minute. |
 | `audit.enabled` | bool | `true` |  | Write `data/audit/YYYY-MM-DD.jsonl`. |
 | `audit.retain_days` | int 1..3650 | `90` |  | Audit files older than this are removed at start. |
-| `ui.key` | string | `"F9"` |  | The key warden-ui binds to open the panel (informational: the binding lives in the content zip). |
+| `ui.key` | string | `"F9"` |  | The key that opens the panel, a Dear ImGui key name (`F9`, `F7`); `/wd` toggles it too. |
 <!-- config-doc:end -->
 
 ## Storage
@@ -153,5 +182,5 @@ you have.
 `.github/workflows/ci.yml`; GitHub Actions is billing-blocked for the
 organisation at the moment, so run the checks locally:
 `luacheck resources tests tools`, `lua tests/unit/run.lua`,
-`lua tools/lang-check.lua`, `tools/get-server.ps1` and
-`python tests/gate/<name>_test.py`.
+`lua tools/lang-check.lua`, `lua tools/lang-gen.lua --check`,
+`tools/get-server.ps1` and `python tests/gate/<name>_test.py`.

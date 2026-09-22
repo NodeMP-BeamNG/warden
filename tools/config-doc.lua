@@ -54,7 +54,7 @@ local DESCRIPTIONS = {
         ["limits.ui_per_min"] = "`wd:req` frames one client may send per minute.",
         ["audit.enabled"] = "Write `data/audit/YYYY-MM-DD.jsonl`.",
         ["audit.retain_days"] = "Audit files older than this are removed at start.",
-        ["ui.key"] = "The key warden-ui binds to open the panel (informational: the binding lives in the content zip).",
+        ["ui.key"] = "The key that opens the panel, a Dear ImGui key name (`F9`, `F7`); `/wd` toggles it too.",
     },
     ru = {
         ["language"] = "Язык сообщений сервера (`en` / `ru`); игрок выбирает свой командой `/lang`.",
@@ -77,7 +77,7 @@ local DESCRIPTIONS = {
         ["limits.ui_per_min"] = "Сколько кадров `wd:req` клиент может послать в минуту.",
         ["audit.enabled"] = "Писать `data/audit/YYYY-MM-DD.jsonl`.",
         ["audit.retain_days"] = "Файлы аудита старше этого удаляются при старте.",
-        ["ui.key"] = "Клавиша, на которую warden-ui вешает панель (справочно: биндинг лежит в content-zip).",
+        ["ui.key"] = "Клавиша панели: имя клавиши Dear ImGui (`F9`, `F7`, `Insert`); `/wd` в чате тоже переключает её.",
     },
 }
 

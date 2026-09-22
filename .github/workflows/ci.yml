@@ -3,8 +3,10 @@ name: ci
 # GitHub Actions is billing-blocked for the organisation at the time of
 # writing; the workflow is kept current so it runs the day it is enabled.
 # Locally: `luacheck resources tests tools`, `lua tests/unit/run.lua`,
-# `lua tools/lang-check.lua`, `lua tools/config-doc.lua --check README.md`,
-# `tools/get-server.ps1` then `python tests/gate/<name>_test.py`.
+# `lua tools/lang-check.lua`, `lua tools/lang-gen.lua --check`,
+# `lua tools/config-doc.lua --check README.md`, `tools/get-server.ps1` then
+# `python tests/gate/<name>_test.py`. The client half (the imgui panel) is
+# plain Lua under resources/warden/client and needs no Node step.
 
 on:
   push:
@@ -53,6 +55,9 @@ jobs:
 
       - name: Dictionaries agree
         run: lua5.4 tools/lang-check.lua
+
+      - name: The panel's generated dictionary is current
+        run: lua5.4 tools/lang-gen.lua --check
 
       - name: The README config tables match the schema
         run: |
@@ -116,6 +121,8 @@ jobs:
           ls -l dist/
           (cd dist && sha256sum -c warden-*.zip.sha256)
           unzip -l dist/warden-*.zip
+          unzip -l dist/warden-*.zip | grep -q 'resources/warden/client/warden/panel.lua' \
+            || { echo "::error::the archive carries no client half"; exit 1; }
 
       - uses: actions/upload-artifact@v4
         with:

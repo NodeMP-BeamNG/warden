@@ -1,10 +1,12 @@
 # Packs the release archive on Windows: dist\warden-<version>.zip (+ .sha256),
 # the same layout as tools/pack.sh:
-#   resources/warden/      the server resource (without data/ and any dev/ probes)
+#   resources/warden/      the server resource with its client/ half -- the panel the
+#                          server streams to every player (without data/ and any dev/ probes)
 #   README.md README.ru.md
 #   docs/                  the hoster documentation (dev.md excluded)
-# The version is read from resources/warden/resource.toml. The client half is
-# the warden-ui repository's own archive; a hoster unzips both at the server root.
+# The version is read from resources/warden/resource.toml. One archive, unzipped
+# at the server root, is the whole install. client/warden/lang.lua must be
+# current (lua tools/lang-gen.lua --check) -- the pack refuses a stale one.
 #
 #   powershell -ExecutionPolicy Bypass -File tools\pack.ps1
 $ErrorActionPreference = "Stop"
@@ -14,6 +16,15 @@ $manifest = Join-Path $root "resources\warden\resource.toml"
 $versionLine = Get-Content $manifest | Where-Object { $_ -match '^version\s*=\s*"([^"]+)"' } | Select-Object -First 1
 if (-not $versionLine) { throw "pack: no version = ""x.y.z"" in $manifest" }
 $version = [regex]::Match($versionLine, '^version\s*=\s*"([^"]+)"').Groups[1].Value
+
+# the panel's dictionary is generated from lang/*.json: never ship a stale one
+$lua = Get-Command lua, lua5.4 -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($lua) {
+    & $lua.Source (Join-Path $root "tools\lang-gen.lua") --check
+    if ($LASTEXITCODE -ne 0) { throw "pack: client/warden/lang.lua is stale; run lua tools/lang-gen.lua" }
+} else {
+    Write-Warning "pack: no lua on PATH; client/warden/lang.lua not checked against lang/*.json"
+}
 
 $out = Join-Path $root "dist"
 New-Item -ItemType Directory -Force -Path $out | Out-Null

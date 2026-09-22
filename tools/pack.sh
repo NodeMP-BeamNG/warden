@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Packs the release archive: dist/warden-<version>.zip (+ .sha256) with
-#   resources/warden/      the server resource (without data/ and dev/ probes)
+#   resources/warden/      the server resource with its client/ half -- the panel the
+#                          server streams to every player (without data/ and dev/ probes)
 #   README.md README.ru.md
 #   docs/                  the hoster documentation (dev.md excluded)
-# The version is read from resources/warden/resource.toml. Needs `zip`.
+# The version is read from resources/warden/resource.toml. One archive, unzipped
+# at the server root, is the whole install. Needs `zip`; with `lua`/`lua5.4` on
+# PATH the generated client/warden/lang.lua is checked against lang/*.json.
 #
 #   tools/pack.sh
 set -euo pipefail
@@ -12,6 +15,13 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 manifest="$root/resources/warden/resource.toml"
 version="$(sed -nE 's/^version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' "$manifest" | head -n1)"
 [[ -n "$version" ]] || { echo "pack: no version in $manifest" >&2; exit 1; }
+
+lua_bin="$(command -v lua5.4 || command -v lua || true)"
+if [[ -n "$lua_bin" ]]; then
+  "$lua_bin" "$root/tools/lang-gen.lua" --check
+else
+  echo "pack: no lua on PATH; client/warden/lang.lua not checked against lang/*.json" >&2
+fi
 
 out="$root/dist"
 mkdir -p "$out"
