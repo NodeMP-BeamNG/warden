@@ -124,9 +124,14 @@ unzip at the server root.
 
 - No cancellable chat event: mutes are advisory (`chat_veto_event` is the
   hook for server #43).
-- `node.bans.add` has no expiry: temp-bans keep their `until` in
-  `bans_meta.json` and a 30 s timer lifts them.
+- `node.bans.add` has no expiry (server #88): temp-bans keep their `until`
+  in `bans_meta.json` and a 30 s timer lifts them.
 - No console input for resources (server #38): commands are chat and panel
   only; `perms.CONSOLE` is the actor the console path will use.
-- No directory lookup by name: `/ban <name>` for an offline player uses the
-  name history.
+- No directory lookup by name (server #90): `/ban <name>` for an offline
+  player uses the name history.
+- No "queue" verdict on `playerConnectRequest` (server #87): a full server
+  is a refusal, not a waiting list.
+- No allowed controller call for the ignition (server #89): there is no
+  "engine off" action yet.
+- Per-viewer nametag hiding (server #69): not in P0.
