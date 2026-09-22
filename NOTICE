@@ -1,0 +1,23 @@
+warden -- server administration for NodeMP
+Copyright (C) 2026 NodeMP-BeamNG contributors
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. See LICENSE.
+
+Credits
+
+The permission model of warden -- groups with a numeric level, named
+permissions granted to groups, a per-group vehicle cap, the rank rule that an
+action needs a higher level than its target -- follows the semantics of
+CobaltEssentials, a server plugin for another BeamNG multiplayer platform,
+released under the GNU General Public License version 3 by its authors
+(https://github.com/prestonelam2003/CobaltEssentials). No source code of
+CobaltEssentials is included in warden; the semantics were reimplemented for
+NodeMP's API, identity model and storage.
+
+The in-game panel (warden-ui) was designed and written from scratch. Its
+predecessor for the other platform, CobaltEssentialsInterface, is not
+published under a free licence, so nothing of it -- code, strings or layout
+constants -- was used.

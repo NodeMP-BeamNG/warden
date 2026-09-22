@@ -1,0 +1,15 @@
+# scratch server homes of the gate tests (one per test)
+tests/gate/_tmp/
+# packed releases; every zip is a build product
+dist/
+*.zip
+# the Node-Server downloaded for a local gate run (tools/get-server.ps1 / .sh)
+.server/
+# the resource's own runtime data, should anyone run a server from the checkout
+resources/warden/data/
+# Python
+__pycache__/
+*.pyc
+# editor
+.vscode/
+.idea/

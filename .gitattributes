@@ -1,0 +1,8 @@
+# LF in the repository and in every checkout: the gate scripts run on Linux
+# in CI and the vendored tests/gate/lib files must stay byte-identical to the
+# server repository's copies.
+* text=auto eol=lf
+*.zip binary
+*.png binary
+*.jpg binary
+*.tar.gz binary
