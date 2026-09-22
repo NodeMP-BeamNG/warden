@@ -131,7 +131,7 @@ directory и никогда не назначается командой; `perms
 | `chat_fallback` | bool | `false` |  | Читать `chat:send` напрямую вместо события шины ресурса `chat` (когда ресурс chat не установлен). |
 | `chat_veto_event` | string | `""` |  | Имя отменяемого события чата, когда платформа его выпустит (server #43); мьют тогда глушит строки. |
 | `whitelist.enabled` | bool | `false` | yes | Пускать только игроков из `data/whitelist.json`. |
-| `votekick.enabled` | bool | `true` | yes | Голосование за кик включено. |
+| `votekick.enabled` | bool | `false` | yes | Голосование за кик включено. |
 | `votekick.threshold` | number 0.5..1.0 | `0.6` | yes | Доля голосующих, которые должны сказать «да» (0.6 = 60 %). |
 | `votekick.min_players` | int 2..200 | `4` | yes | Нет голосования, если игроков меньше. |
 | `votekick.window_sec` | int 15..600 | `60` | yes | Сколько секунд длится голосование. |

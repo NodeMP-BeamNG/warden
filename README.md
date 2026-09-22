@@ -132,7 +132,7 @@ Keys marked runtime can be changed with `/settings set` (kept in
 | `chat_fallback` | bool | `false` |  | Read `chat:send` directly instead of the `chat` resource's bus event (no chat resource installed). |
 | `chat_veto_event` | string | `""` |  | Name of the cancellable chat event once the platform ships it (server #43); mutes then drop lines. |
 | `whitelist.enabled` | bool | `false` | yes | Only players in `data/whitelist.json` may join. |
-| `votekick.enabled` | bool | `true` | yes | Vote-kick on or off. |
+| `votekick.enabled` | bool | `false` | yes | Vote-kick on or off. |
 | `votekick.threshold` | number 0.5..1.0 | `0.6` | yes | Share of eligible voters that must say yes (0.6 = 60 %). |
 | `votekick.min_players` | int 2..200 | `4` | yes | No vote with fewer players connected. |
 | `votekick.window_sec` | int 15..600 | `60` | yes | Seconds a vote stays open. |
