@@ -12,9 +12,10 @@ panel only shows and asks.
 
 ## Install
 
-1. Download `warden-<version>.zip` from the releases and unzip it at the
-   server's root (the folder with `Node-Server`): it puts `resources/warden/`
-   in place.
+1. Download `warden-<version>.zip` from the
+   [releases](https://github.com/NodeMP-BeamNG/warden/releases) and unzip it
+   at the server's root (the folder with `Node-Server`): it puts
+   `resources/warden/` in place.
 2. Install the `chat` resource (`examples/chat` in the server archive) beside
    it: warden takes its commands from the chat resource's bus event and
    answers through it. Without a chat resource set `chat_fallback = true`.

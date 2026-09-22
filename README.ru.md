@@ -12,8 +12,9 @@ ImGui игры, которую сервер сам отдаёт каждому �
 
 ## Установка
 
-1. Скачайте `warden-<version>.zip` из релизов и распакуйте в корень сервера
-   (папка с `Node-Server`): появится `resources/warden/`.
+1. Скачайте `warden-<version>.zip` из
+   [релизов](https://github.com/NodeMP-BeamNG/warden/releases) и распакуйте в
+   корень сервера (папка с `Node-Server`): появится `resources/warden/`.
 2. Рядом поставьте ресурс `chat` (`examples/chat` из архива сервера): warden
    берёт команды из его события на шине и отвечает через него. Без ресурса
    chat включите `chat_fallback = true`.

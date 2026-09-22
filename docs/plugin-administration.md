@@ -22,8 +22,10 @@ description: warden — группы и права, кик / бан / белый
 
 ## Установка
 
-1. Скачайте `warden-<version>.zip` из релизов `warden` и распакуйте в корень
-   сервера — папку, где лежит `Node-Server`. Появится `resources/warden/`.
+1. Скачайте `warden-<version>.zip` из
+   [релизов `warden`](https://github.com/NodeMP-BeamNG/warden/releases) и
+   распакуйте в корень сервера — папку, где лежит `Node-Server`. Появится
+   `resources/warden/`.
 2. Рядом должен стоять ресурс `chat` (`examples/chat` из архива сервера):
    warden получает команды из его события `chat:command` и отвечает через
    него системными строками.
