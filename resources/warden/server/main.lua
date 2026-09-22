@@ -107,6 +107,7 @@ end)
 
 node.on("playerJoined", function(player)
     identity.touch(player)
+    perms.remember(player)   -- the level and the directory's ADM flag, for the rank rule while offline
     perms.apply_tag(player)
     push.players()
     local muted, m = mutes.is_muted(identity.key(player))
@@ -117,7 +118,7 @@ node.on("playerJoined", function(player)
 end)
 
 node.on("playerLeft", function(player)
-    votekick.player_left(player.id)
+    votekick.player_left(player)
     push.player_left(player.id)
     protocol.forget(player.id)
     chat.forget(player.id)
@@ -159,19 +160,14 @@ node.on("resourceUnload", function() flush("unload") end)
 -- players already in (a reload while the server runs)
 for _, p in ipairs(node.players.all()) do
     identity.touch(p)
+    perms.remember(p)
     perms.apply_tag(p)
 end
 
--- the gate tests' probes (tests/gate/hooks/dev/test_hooks.lua), copied in by
--- the harness for a server started with WD_TEST_HOOKS=1; never in a release
-local getenv_ok, hooks_env = pcall(os.getenv, "WD_TEST_HOOKS")
-if getenv_ok and hooks_env == "1" then
-    if package.searchpath("dev.test_hooks", package.path) ~= nil then
-        require("dev.test_hooks").install()
-    else
-        log.warn("WD_TEST_HOOKS=1 but there is no server/dev/test_hooks.lua; no probes registered")
-    end
-end
+-- The gate tests' probes (tests/gate/hooks/dev/test_hooks.lua) are not
+-- loaded from here: the harness copies them into its scratch server and
+-- appends the require to that copy of this file, so a release carries
+-- neither the probes nor a loader for them.
 
 log.info("warden %s ready: %d group(s), %d player record(s), whitelist %s, votekick %s", VERSION,
     #groups.all(), util.count(identity.all()), whitelist.enabled() and "on" or "off",

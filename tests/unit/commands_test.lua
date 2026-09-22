@@ -320,7 +320,7 @@ tests.rate_limit_and_audit_tail = function()
     t.match(node._told_text(3), "Mod: group mod")
     cmd(W, admin, "/kick Bob")
     cmd(W, admin, "/warn Gus hi")
-    cmd(W, admin, "/whitelist add Gus")
+    cmd(W, admin, "/whitelist add #5")   -- a guest goes on the list by pid or key, never by name
     node._told = {}
     cmd(W, mod, "/audit 2")
     local text = node._told_text(3)

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Vote-kick gate: four players from four addresses; the start rules
-(permission, too few, immune, self), the vote through the chat and the
-panel, the vote.state pushes everyone gets, the target kicked when the
-threshold is reached, the cooldown, a failed vote, the cancel.
+"""Vote-kick gate: four players from four addresses (and a fifth from one of
+them, who is not another voter); the start rules (permission, too few,
+immune, self), the vote through the chat and the panel, the vote.state
+pushes everyone gets, the target kicked when the threshold is reached, the
+cooldown (kept in data/votekick.json), a failed vote, the cancel.
 
-One server (31230, WD_TEST_HOOKS=1, votekick.cooldown_sec lowered so the
-scenario does not wait five minutes).
+One server (31230, WD_TEST_HOOKS=1, votekick.enabled turned on -- it is off
+by default -- and votekick.cooldown_sec lowered so the scenario does not
+wait five minutes).
 """
 import sys
 import time
@@ -23,7 +25,7 @@ def vote_events(inbox, since, settle=0.5):
 def main():
     require_server()
     info("=== vote-kick ===")
-    config = {"votekick": {"cooldown_sec": 3, "window_sec": 15}, "limits": {"commands_per_10s": 100}}
+    config = {"votekick": {"enabled": True, "cooldown_sec": 3, "window_sec": 15}, "limits": {"commands_per_10s": 100}}
     with Server(PORT, env=TEST_HOOKS_ENV, name="votekick", config=config) as srv:
         info("--- too few players ---")
         p1 = Client.join(PORT, name="P1", source=IPS[0])
@@ -48,6 +50,9 @@ def main():
         check(i1.chat_lines(m) == ["You cannot vote-kick yourself."], "not yourself")
 
         info("--- a vote passes: 4 players, 3 eligible, ceil(0.6*3) = 2 yes ---")
+        # a fifth client from P2's address is P2's identity: not another voter, not another head
+        p5 = Client.join(PORT, name="P5", source=IPS[1])
+        i5 = Inbox(p5)
         marks = [i.mark() for i in (i1, i2, i3, i4)]
         m = i1.chat("/votekick P3 ramming")
         lines = i1.chat_lines(m)
@@ -64,7 +69,14 @@ def main():
         check(i2.chat_lines(m) == ["Usage: /vote yes|no|cancel"], "usage")
         r = i4.request("vote.state")
         check(r.get("ok") is True and r["data"]["vote"]["yes"] == 1 and r["data"]["vote"]["eligible"] == 3,
-              "vote.state from the panel", r)
+              "vote.state from the panel: five connected, three eligible identities", r)
+        m5 = i5.chat("/vote no")
+        check(i5.chat_lines(m5) == ["Vote counted: 1/2 yes."], "P5 votes (as P2's identity)")
+        m2 = i2.chat("/vote no")
+        check(i2.chat_lines(m2) == ["Vote counted: 1/2 yes."], "P2 votes no as well")
+        r = i4.request("vote.state")
+        check(r.get("ok") is True and r["data"]["vote"]["no"] == 1 and r["data"]["vote"]["yes"] == 1,
+              "one address, one vote: two no's from it count once", r)
         mk = i2.mark()
         r = i4.request("vote.cast", {"yes": True})
         check(r.get("ok") is True and r["data"]["vote"]["yes"] == 2 and r["data"]["running"] is False,
@@ -75,6 +87,7 @@ def main():
         lines = i2.chat_lines(mk)
         check(any("Vote passed: P3 was kicked (2 yes)." == ln for ln in lines), "the result in the chat", lines)
         p3.close()
+        p5.close()
         rows = probe(p1, "audit.tail", {"n": 5}).get("data", {}).get("rows", [])
         check(any(r_["op"] == "votekick_start" and r_["result"] == "ok" for r_ in rows), "the start is audited", rows)
 
@@ -84,7 +97,10 @@ def main():
         m = i1.chat("/votekick P2")
         lines = i1.chat_lines(m)
         check(lines and lines[0].startswith("Wait ") and lines[0].endswith(" s before another vote."), "cooldown", lines)
-        time.sleep(3.5)
+        time.sleep(1.0)
+        cd = (srv.data("votekick.json") or {}).get("cooldown", {})
+        check("ip:" + IPS[0] in cd and "ip:" + IPS[2] in cd, "the cooldowns are kept in data/votekick.json", cd)
+        time.sleep(2.5)
         m = i1.chat("/votekick P2 test")
         check(any("started a vote" in ln for ln in i1.chat_lines(m)), "after the cooldown a new vote starts")
         m3 = i3.chat("/vote no")

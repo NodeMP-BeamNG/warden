@@ -8,12 +8,18 @@
 --   groups:reload() -> bool    re-read from disk (a hoster edited the file)
 --   groups:on_reload(fn)       fn(data) after a reload that came from the file watcher
 --   store.flush_all()          every dirty store written (shutdown, unload)
+--   store.rejected             marks a read-only store refused since the start (the
+--                              registry compares before / after a handler and tells the
+--                              actor: err.store_readonly); store.last_readonly its name
+--   store.readonly_stores()    the names of the stores that are read-only now
 --
--- A file that does not parse is not overwritten: the .bak is tried, then the
--- default, and the store stays read-only for that file until a reload succeeds
--- (a warning names the file). node.fs.watch, when the server has it, re-reads
--- a file changed by someone else about a second after the change; a write of
--- our own within the last WATCH_IGNORE_S seconds is ignored.
+-- A file that does not parse is not overwritten: at open the .bak is tried,
+-- then the default; on a reload (the hoster saved half a file) the memory is
+-- kept as it is. Either way the store is read-only for that file until a
+-- reload parses again (a warning names the file, every refused change is
+-- counted). node.fs.watch, when the server has it, re-reads a file changed by
+-- someone else about a second after the change; a write of our own within
+-- the last WATCH_IGNORE_S seconds is ignored.
 
 local log = require("core.log")
 local util = require("core.util")
@@ -23,6 +29,8 @@ local M = {}
 M.DIR = "data"
 M.SAVE_DELAY_MS = 1000
 M.WATCH_IGNORE_S = 3
+M.rejected = 0
+M.last_readonly = nil
 
 local stores = {}   -- name -> store
 
@@ -46,7 +54,15 @@ local function ensure_dir()
 end
 
 function Store.mark(self)
-    if self.readonly then return false end
+    if self.readonly then
+        self.rejected = (self.rejected or 0) + 1
+        M.rejected = M.rejected + 1
+        M.last_readonly = self.name
+        if self.rejected == 1 then
+            log.error("store %s: a change was not saved, %s is read-only until it parses again", self.name, self.path)
+        end
+        return false
+    end
     self.dirty = true
     if self.timer == nil then
         self.timer = node.after(M.SAVE_DELAY_MS, function()
@@ -91,36 +107,44 @@ function Store.save(self)
     return renamed
 end
 
--- reads the file (or its .bak, or the default); returns true when the file
--- itself was read
-local function load_into(self)
+-- reads the file (or, at open, its .bak or the default); returns true when
+-- the file itself was read. A file that stopped parsing after open leaves
+-- the memory alone: what is there is newer than any .bak.
+local function load_into(self, opening)
     local data, why = read_json(self.path)
     if data ~= nil then
         self.data = data
+        if self.readonly then log.info("store %s: %s parses again; writes resume", self.name, self.path) end
         self.readonly = false
+        self.rejected = 0
         return true
     end
     if why == "unreadable" then
-        local bak = read_json(self.path .. ".bak")
-        if bak ~= nil then
-            log.warn("store %s: %s does not parse; using %s.bak (the file is left alone until it parses again)",
-                self.name, self.path, self.path)
-            self.data = bak
-        else
-            log.warn("store %s: %s does not parse and there is no .bak; running on defaults, read-only",
+        if not opening then
+            log.warn("store %s: %s does not parse any more; keeping the state in memory, read-only until it does",
                 self.name, self.path)
-            self.data = self.default()
+        else
+            local bak = read_json(self.path .. ".bak")
+            if bak ~= nil then
+                log.warn("store %s: %s does not parse; using %s.bak (the file is left alone until it parses again)",
+                    self.name, self.path, self.path)
+                self.data = bak
+            else
+                log.warn("store %s: %s does not parse and there is no .bak; running on defaults, read-only",
+                    self.name, self.path)
+                self.data = self.default()
+            end
         end
         self.readonly = true
         return false
     end
-    self.data = self.default()
+    if opening then self.data = self.default() end
     self.readonly = false
     return false
 end
 
 function Store.reload(self)
-    local had = load_into(self)
+    local had = load_into(self, false)
     if had then
         for _, fn in ipairs(self.listeners) do
             local ok, err = pcall(fn, self.data)
@@ -148,9 +172,9 @@ function M.open(name, default)
     if stores[name] then return stores[name] end
     local self = setmetatable({
         name = name, path = path_of(name), default = default or function() return {} end,
-        data = nil, dirty = false, timer = nil, readonly = false, listeners = {}, written_at = nil,
+        data = nil, dirty = false, timer = nil, readonly = false, rejected = 0, listeners = {}, written_at = nil,
     }, Store)
-    local existed = load_into(self)
+    local existed = load_into(self, true)
     if not existed and not self.readonly then
         -- first run: write the defaults so the hoster has a file to edit
         self:save()
@@ -170,6 +194,15 @@ function M.flush_all()
     return n
 end
 
+function M.readonly_stores()
+    local out = {}
+    for name, s in pairs(stores) do
+        if s.readonly then out[#out + 1] = name end
+    end
+    table.sort(out)
+    return out
+end
+
 -- the tests reopen stores between cases
 function M._reset()
     for _, s in pairs(stores) do
@@ -177,6 +210,7 @@ function M._reset()
         if s.watch_id and node.fs.unwatch then pcall(node.fs.unwatch, s.watch_id) end
     end
     stores = {}
+    M.rejected, M.last_readonly = 0, nil
 end
 
 return M

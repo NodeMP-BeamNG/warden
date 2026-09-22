@@ -36,7 +36,7 @@ M.OPS = {
         return { ok = true, data = {
             protocol = M.PROTOCOL, version = M.VERSION, lang = say.lang_of(player),
             key = settings.config().ui.key,
-            me = builtin.player_row(player, true), perms = perms.perms_of(player),
+            me = builtin.player_row(player, true, actor), perms = perms.perms_of(player),
             vote = votekick.state(), permissions = groups.PERMISSIONS,
         } }
     end },
