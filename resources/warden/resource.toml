@@ -1,6 +1,6 @@
 # warden -- server administration for NodeMP: groups and levels, kick / ban /
 # whitelist / mute / warn, per-group vehicle caps, vote-kick, chat commands and
-# the wd:req protocol the warden-ui client half talks.
+# the in-game panel (client/warden/*.lua, streamed to every joining player).
 #
 # Every [config] value is optional: a missing key takes the default written
 # here. The keys marked "runtime" can also be changed while the server runs
@@ -15,9 +15,9 @@ type = "lua"
 main = "server/main.lua"
 
 [client]
-# The client half is the separate warden-ui release: its zip puts
-# resources/warden/client/warden/*.lua here (streamed to every joining player)
-# and content/warden-ui.zip beside it. Without it warden works from the chat.
+# The panel: client/warden/*.lua is streamed to every joining player and drawn
+# with the game's Dear ImGui (ui_imgui). Nothing to install on the player's
+# side. client/warden/lang.lua is generated from lang/*.json (tools/lang-gen.lua).
 obfuscation = "light"
 
 [config]
@@ -90,7 +90,8 @@ enabled = true
 retain_days = 90
 
 [config.ui]
-# The key warden-ui binds to open the panel. Informational: the binding lives
-# in the client content zip (settings/inputmaps); this value is what /help and
-# the panel show.
+# The key that opens and closes the panel, read by the client half from the
+# hello reply: a Dear ImGui key name without the prefix -- "F9", "F7", "Insert",
+# "Home" (im.Key_<name>; an unknown name falls back to F9). /wd in the chat
+# toggles it too. Shown by /help.
 key = "F9"
