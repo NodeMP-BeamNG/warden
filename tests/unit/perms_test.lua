@@ -1,0 +1,147 @@
+-- identity, groups and perms: keys, the name history, group inheritance,
+-- wildcards, caps, the rank rule, the owner bootstrap, the tag.
+
+local boot = require("boot")
+
+local tests = {}
+
+tests.identity_keys_and_history = function()
+    local W = boot({})
+    local alice = node._join(1, { name = "Alice", accountId = 42, ip = "1.1.1.1" })
+    local guest = node._join(2, { name = "Guest7", ip = "2.2.2.2" })
+    t.eq(W.identity.key(alice), "acct:42")
+    t.eq(W.identity.key(guest), "ip:2.2.2.2")
+    t.truthy(W.identity.is_guest(guest))
+    t.falsy(W.identity.is_guest(alice))
+    node._emit("playerJoined", alice)
+    node._emit("playerJoined", guest)
+    alice.name = "Alicia"
+    node._emit("playerJoined", alice)
+    local rec = W.identity.record("acct:42")
+    t.eq(rec.names, { "Alicia", "Alice" })
+    t.eq(rec.joins, 2)
+    t.eq(rec.last_ip, "1.1.1.1")
+    -- find: pid, key, online name, offline name, unique prefix
+    t.eq(W.identity.find("#1"), "acct:42")
+    t.eq(W.identity.find("acct:42"), "acct:42")
+    t.eq(W.identity.find("alicia"), "acct:42")
+    node._leave(1)
+    t.eq(W.identity.find("Alicia"), "acct:42", "offline, from the history")
+    t.eq(W.identity.find("ali"), "acct:42", "unique prefix")
+    t.eq(W.identity.find("zzz"), nil)
+    t.eq(W.identity.display("acct:42"), "Alicia")
+    t.eq(W.identity.ban_target("acct:42"), 42)
+    t.eq(W.identity.ban_target("ip:2.2.2.2"), "2.2.2.2")
+end
+
+tests.groups_defaults_inherit_and_wildcards = function()
+    local W = boot({})
+    local g = W.groups
+    t.eq(g.level("owner"), 100)
+    t.eq(g.level("nope"), 0)
+    t.truthy(g.allows("mod", "votekick.vote"), "inherited from default through trusted")
+    t.truthy(g.allows("mod", "mod.kick"))
+    t.falsy(g.allows("mod", "mod.ban"))
+    t.truthy(g.allows("admin", "mod.kick"), "inherited")
+    t.truthy(g.allows("owner", "anything.at.all"), "*")
+    t.eq(g.cap("default"), 1)
+    t.eq(g.cap("owner"), -1)
+    t.eq(g.cap("nope"), 1)
+    t.eq(#g.all(), 5)
+    t.eq(g.all()[1].name, "default")
+    -- prefix wildcard
+    t.truthy(g.save({ name = "helper", level = 20, inherits = { "default" }, perms = { "mod.*" }, caps = {} }))
+    t.truthy(g.allows("helper", "mod.kick"))
+    t.truthy(g.allows("helper", "mod.whitelist"))
+    t.falsy(g.allows("helper", "car.delete"))
+    t.eq(g.cap("helper"), 1, "no cap of its own: inherited from default")
+end
+
+tests.groups_validation = function()
+    local W = boot({})
+    local g = W.groups
+    t.eq(select(2, g.save({ name = "Bad Name", level = 1 })), "bad_name")
+    t.eq(select(2, g.save({ name = "x", level = 5000 })), "bad_level")
+    t.eq(select(2, g.save({ name = "x", level = 5, inherits = { "ghost" } })), "unknown_parent")
+    t.eq(select(2, g.save({ name = "x", level = 5, perms = { "Bad Perm" } })), "bad_perm")
+    t.eq(select(2, g.save({ name = "x", level = 5, caps = { vehicles = -2 } })), "bad_cap")
+    t.truthy(g.save({ name = "a", level = 1, inherits = {} }))
+    t.truthy(g.save({ name = "b", level = 2, inherits = { "a" } }))
+    t.eq(select(2, g.save({ name = "a", level = 1, inherits = { "b" } })), "cycle")
+    t.eq(select(2, g.remove("a")), "in_use")
+    t.truthy(g.remove("b"))
+    t.truthy(g.remove("a"))
+    t.eq(select(2, g.remove("default")), "protected")
+    t.eq(select(2, g.remove("owner")), "protected")
+    t.eq(select(2, g.remove("zzz")), "unknown_group")
+    -- the owner group keeps "*" whatever is saved
+    t.truthy(g.save({ name = "owner", level = 100, perms = {} }))
+    t.truthy(g.allows("owner", "mod.kick"))
+    -- the file was written with the change (the owner's inherits were dropped by the save above)
+    node._advance(1000)
+    local data = node.json.decode(node._files["data/groups.json"])
+    t.eq(data.owner.inherits, {})
+    t.eq(data.owner.perms, { "*" })
+    t.eq(data.a, nil)
+end
+
+tests.perms_owner_bootstrap_and_rank = function()
+    local W = boot({ owner_ids = { 7 } })
+    local owner = node._join(1, { name = "Own", accountId = 7 })
+    local dadm = node._join(2, { name = "Dir", accountId = 8, accountRoles = "ADM" })
+    local bob = node._join(3, { name = "Bob", accountId = 9 })
+    local guest = node._join(4, { name = "G", ip = "9.9.9.9" })
+    t.eq(W.perms.group_of(owner), "owner")
+    t.eq(W.perms.group_of(dadm), "owner")
+    t.eq(W.perms.group_of(bob), "default")
+    t.eq(W.perms.group_of(guest), "default")
+    t.truthy(W.perms.has(owner, "perms.manage"))
+    t.falsy(W.perms.has(bob, "mod.kick"))
+    t.truthy(W.perms.set_group(bob, "mod"))
+    t.eq(W.perms.group_of(bob), "mod")
+    t.eq(W.perms.level_of(bob), 50)
+    t.eq(bob.role, "mod", "the tag follows the group")
+    t.eq(select(2, W.perms.set_group(bob, "owner")), "owner_is_config")
+    t.eq(select(2, W.perms.set_group(bob, "ghost")), "unknown_group")
+    local a_bob, a_owner, a_guest = W.perms.actor(bob), W.perms.actor(owner), W.perms.actor(guest)
+    t.truthy(W.perms.outranks(a_owner, a_bob))
+    t.truthy(W.perms.outranks(a_bob, a_guest))
+    t.falsy(W.perms.outranks(a_bob, a_bob), "equal levels do not outrank")
+    t.falsy(W.perms.outranks(a_bob, a_owner))
+    t.truthy(W.perms.outranks(W.perms.CONSOLE, a_owner))
+    -- offline key
+    t.truthy(W.perms.set_group("acct:555", "trusted"))
+    t.eq(W.perms.group_of_key("acct:555"), "trusted")
+    -- the change was announced on the bus
+    local changes = node._bus_of("warden:groupChanged")
+    t.eq(#changes, 2)
+    t.eq(changes[1].group, "mod")
+    t.eq(changes[1].pid, 3)
+end
+
+tests.perms_no_tag_when_off = function()
+    local W = boot({ role_tag = false })
+    local bob = node._join(3, { name = "Bob", accountId = 9 })
+    W.perms.set_group(bob, "mod")
+    t.eq(bob.role, "")
+    -- and the ADM owner is not an owner when the switch is off
+    local W2 = boot({ directory_admin_is_owner = false })
+    local dadm = node._join(2, { name = "Dir", accountId = 8, accountRoles = "ADM" })
+    t.eq(W2.perms.group_of(dadm), "default")
+end
+
+tests.groups_reload_from_disk_changes_perms = function()
+    local W = boot({})
+    local bob = node._join(3, { name = "Bob", accountId = 9 })
+    W.perms.set_group(bob, "trusted")
+    t.falsy(W.perms.has(bob, "mod.kick"))
+    node._advance(4000)
+    local data = node.json.decode(node._files["data/groups.json"])
+    table.insert(data.trusted.perms, "mod.kick")
+    node._files["data/groups.json"] = node.json.encode(data)
+    node._touch("data/groups.json")
+    t.truthy(W.perms.has(bob, "mod.kick"), "the cache was invalidated")
+    t.eq(#node._bus_of("warden:groupsChanged"), 1)
+end
+
+return tests
