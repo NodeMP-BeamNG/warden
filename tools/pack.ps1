@@ -2,7 +2,8 @@
 # the same layout as tools/pack.sh:
 #   resources/warden/      the server resource with its client/ half -- the panel the
 #                          server streams to every player (without data/ and any dev/ probes)
-#   README.md README.ru.md
+#   LICENSE NOTICE         the licence and the notices (GPL section 4: every copy carries them)
+#   README.md README.ru.md CHANGELOG.md
 #   docs/                  the hoster documentation (dev.md excluded)
 # The version is read from resources/warden/resource.toml. One archive, unzipped
 # at the server root, is the whole install. client/warden/lang.lua must be
@@ -38,8 +39,11 @@ try {
     foreach ($drop in @("data", "server\dev", ".obfcache", "__pycache__")) {
         Remove-Item -Recurse -Force -ErrorAction SilentlyContinue (Join-Path $stage "resources\warden\$drop")
     }
-    Copy-Item (Join-Path $root "README.md") (Join-Path $stage "README.md")
-    Copy-Item (Join-Path $root "README.ru.md") (Join-Path $stage "README.ru.md")
+    foreach ($top in @("LICENSE", "NOTICE", "README.md", "README.ru.md", "CHANGELOG.md")) {
+        $src = Join-Path $root $top
+        if (-not (Test-Path $src)) { throw "pack: $top is missing; the archive must carry it" }
+        Copy-Item $src (Join-Path $stage $top)
+    }
     $docs = Join-Path $root "docs"
     if (Test-Path $docs) {
         Copy-Item -Recurse $docs (Join-Path $stage "docs")

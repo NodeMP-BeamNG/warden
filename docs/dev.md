@@ -240,7 +240,8 @@ picker sends `me.lang`.
 
 `tools/pack.ps1` / `tools/pack.sh` build `dist/warden-<version>.zip` from
 `resources/warden` -- the server half and `client/` -- (without `data/` and
-`server/dev/`), the READMEs and `docs/` (without this file). Tag
+`server/dev/`), `LICENSE` and `NOTICE` (GPL section 4: every copy carries
+them), the READMEs, `CHANGELOG.md` and `docs/` (without this file). Tag
 `v<version>` matching `resource.toml`. One archive, unzipped at the server
 root, is the whole install; the `warden-ui` repository is the retired
 Vue/CEF attempt and ships nothing since 0.1.0.

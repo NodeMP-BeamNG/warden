@@ -123,6 +123,10 @@ jobs:
           unzip -l dist/warden-*.zip
           unzip -l dist/warden-*.zip | grep -q 'resources/warden/client/warden/panel.lua' \
             || { echo "::error::the archive carries no client half"; exit 1; }
+          for top in LICENSE NOTICE README.md README.ru.md CHANGELOG.md; do
+            unzip -Z1 dist/warden-*.zip | grep -qx "$top" \
+              || { echo "::error::the archive carries no $top at its root"; exit 1; }
+          done
 
       - uses: actions/upload-artifact@v4
         with:

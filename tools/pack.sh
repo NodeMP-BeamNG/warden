@@ -2,7 +2,8 @@
 # Packs the release archive: dist/warden-<version>.zip (+ .sha256) with
 #   resources/warden/      the server resource with its client/ half -- the panel the
 #                          server streams to every player (without data/ and dev/ probes)
-#   README.md README.ru.md
+#   LICENSE NOTICE         the licence and the notices (GPL section 4: every copy carries them)
+#   README.md README.ru.md CHANGELOG.md
 #   docs/                  the hoster documentation (dev.md excluded)
 # The version is read from resources/warden/resource.toml. One archive, unzipped
 # at the server root, is the whole install. Needs `zip`; with `lua`/`lua5.4` on
@@ -34,7 +35,10 @@ mkdir -p "$stage/resources"
 cp -R "$root/resources/warden" "$stage/resources/warden"
 rm -rf "$stage/resources/warden/data" "$stage/resources/warden/server/dev"
 find "$stage" -name .obfcache -o -name __pycache__ | xargs -r rm -rf
-cp "$root/README.md" "$root/README.ru.md" "$stage/"
+for top in LICENSE NOTICE README.md README.ru.md CHANGELOG.md; do
+  [[ -f "$root/$top" ]] || { echo "pack: $top is missing; the archive must carry it" >&2; exit 1; }
+  cp "$root/$top" "$stage/$top"
+done
 if [[ -d "$root/docs" ]]; then
   cp -R "$root/docs" "$stage/docs"
   rm -f "$stage/docs/dev.md"
