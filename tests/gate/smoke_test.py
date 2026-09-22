@@ -19,13 +19,14 @@ def main():
     info("=== smoke ===")
     with Server(PORT, env=TEST_HOOKS_ENV, name="smoke") as srv:
         log = srv.log()
-        check("warden %s ready: 5 group(s), 0 player record(s), whitelist off, votekick on" % version in log,
-              "warden logged ready with the defaults")
+        check("warden %s ready: 5 group(s), 0 player record(s), whitelist off, votekick off" % version in log,
+              "warden logged ready with the defaults (vote-kick off unless turned on)")
         check("test hooks installed" in log, "the probes are in (WD_TEST_HOOKS=1)")
         check("chat loaded" in log, "the chat resource is up beside it")
         check(srv.lua_errors() == [], "no Lua errors at start", srv.lua_errors())
         data = srv.data()
-        for name in ("groups.json", "players.json", "whitelist.json", "settings.json", "bans_meta.json"):
+        for name in ("groups.json", "players.json", "whitelist.json", "settings.json", "bans_meta.json",
+                     "votekick.json"):
             check(name in data, "data/%s written on first start" % name)
         check(set(data.get("groups.json", {}).keys()) == {"default", "trusted", "mod", "admin", "owner"},
               "groups.json carries the five default groups")

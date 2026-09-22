@@ -5,6 +5,13 @@ notice on a chat line), warn, the whitelist and allow_guests at the connect
 gate, group assignment with the rank rule and the role tag, the vehicle cap
 on a real spawn, /car delete, the audit rows, /settings.
 
+Everyone here is a guest (no directory), which is what the review's name
+findings are about: a guest's name hands out no privilege (/group,
+/whitelist add need #pid or the key), a name entry on the whitelist never
+admits a guest, a name shared by a connected guest and a record is
+`ambiguous`, prefixes match nobody, ip: keys are address literals, a
+refused wd:req cannot stuff the audit, addresses are for mod.ban and up.
+
 One server (31210, WD_TEST_HOOKS=1). Every client comes from its own
 loopback address (127.0.0.1, .2, .3, ...), so each has its own record.
 """
@@ -12,13 +19,13 @@ import json
 import sys
 import time
 
-from harness import Client, Inbox, Server, TEST_HOOKS_ENV, check, info, lang, probe, probe_data, require_server, \
-    result
+from harness import Client, Inbox, Server, TEST_HOOKS_ENV, check, err_code, info, lang, probe, probe_data, \
+    require_server, result
 
 PORT = 31210
 CAR = json.dumps({"jbm": "coupe", "vcf": {"parts": {}, "paints": [{"baseColor": [1, 0, 0, 1]}]}}).encode()
 
-ALICE, BOB, CARL, MOD = "127.0.0.1", "127.0.0.2", "127.0.0.3", "127.0.0.4"
+ALICE, BOB, CARL, MOD, FAKE = "127.0.0.1", "127.0.0.2", "127.0.0.3", "127.0.0.4", "127.0.0.5"
 SAVE = 1.5  # the stores write coalesced, within a second of a change
 
 
@@ -47,41 +54,62 @@ def main():
         m = b.chat("/kick Mod")
         check(b.chat_lines(m) == ["You may not do that (mod.kick)."], "a default player has no mod.kick")
 
-        info("--- group set: below your own level only ---")
+        info("--- group set: below your own level only; a guest by #pid, never by name ---")
         m = m_.chat("/group Bob trusted")
         check(m_.chat_lines(m) == ["You may not do that (perms.set)."], "perms.set is the admin's")
         m = a.chat("/group Bob trusted")
-        check(a.chat_lines(m) == ["Bob is now in trusted."], "/group Bob trusted")
+        check(a.chat_lines(m) == ["'Bob' is a guest's name and proves nothing; use #pid or the key (ip:%s)." % BOB],
+              "a guest's name hands out no group (the admin sees the key: mod.ban)")
+        check(probe_data(probe(bob, "me"), "group") == "default", "Bob is still default")
+        m = a.chat("/group #%d trusted" % bob.id)
+        check(a.chat_lines(m) == ["Bob is now in trusted."], "/group #pid trusted")
         got = b.wait("chat:msg", lambda x: isinstance(x, dict) and "put you in the group" in x.get("text", ""), 5)
         check(got is not None and got["text"] == "Alice put you in the group trusted.", "Bob was told", got)
         check(probe_data(probe(bob, "me"), "role") == "trusted", "Bob's tag is trusted")
-        m = a.chat("/group Bob admin")
+        m = a.chat("/group #%d admin" % bob.id)
         check(a.chat_lines(m) == ["The group admin is not below your level."], "not at or above your own level")
-        m = a.chat("/group Bob owner")
+        m = a.chat("/group ip:%s owner" % BOB)
         check(a.chat_lines(m) == ["The group owner is not below your level."], "never owner")
+        m = a.chat("/group ip:nodemp:1 trusted")
+        check(a.chat_lines(m) == [lang("err.bad_key").replace("{target}", "ip:nodemp:1")],
+              "an ip: key must be an address literal")
 
-        info("--- whitelist at the gate ---")
+        info("--- whitelist at the gate: a name entry never admits a guest ---")
         m = a.chat("/whitelist on")
         check(a.chat_lines(m) == ["Whitelist is on."], "/whitelist on")
         kind, why = Client.try_join(PORT, name="Carl", source=CARL)
         check(kind == "kick" and why == lang("join.whitelist"), "a connect is refused with the whitelist text",
               (kind, why))
         m = a.chat("/whitelist add Carl")
-        check(a.chat_lines(m) == ["Whitelisted name:carl."], "a name not seen yet is a name entry")
+        check(a.chat_lines(m) == [lang("done.whitelist_add_name").replace("{entry}", "name:carl")],
+              "a name not seen yet is a name entry, and the answer says what it is good for")
+        kind, why = Client.try_join(PORT, name="Carl", source=CARL)
+        check(kind == "kick" and why == lang("join.whitelist"), "a guest of that name is not admitted by it",
+              (kind, why))
+        m = a.chat("/whitelist add ip:" + CARL)
+        check(a.chat_lines(m) == ["Whitelisted ip:%s." % CARL], "a guest goes on the list by key")
         carl = Client.join(PORT, name="Carl", source=CARL)
-        check(carl.id is not None, "Carl is let in by name", carl.id)
+        check(carl.id is not None, "Carl is let in by key", carl.id)
         rec = probe(carl, "record")
         check(probe_data(rec, "record", ).get("names") == ["Carl"], "Carl has a record now (the join ran)", rec)
+        m = a.chat("/whitelist add Carl")
+        check(a.chat_lines(m) == ["'Carl' is a guest's name and proves nothing; use #pid or the key (ip:%s)." % CARL],
+              "a connected guest's name is refused as well")
         carl.close()
         time.sleep(SAVE)
         wl = srv.data("whitelist.json")
-        check(wl and "ip:" + CARL in wl["entries"] and "name:carl" not in wl["entries"],
-              "the name entry was promoted to the key at the join", wl)
+        check(wl and "ip:" + CARL in wl["entries"] and "name:carl" in wl["entries"],
+              "the name entry stays: the guest did not consume it", wl)
         m = a.chat("/whitelist list")
         lines = a.chat_lines(m)
-        check(lines[0] == "Whitelist on, 1 entry(ies):" and lines[1].startswith("ip:" + CARL), "/whitelist list", lines)
+        check(lines[0] == "Whitelist on, 2 entry(ies):" and lines[1].startswith("ip:" + CARL)
+              and lines[2].startswith("name:carl"), "/whitelist list", lines)
         m = a.chat("/whitelist remove Carl")
-        check(a.chat_lines(m) == ["Removed ip:%s from the whitelist." % CARL], "/whitelist remove")
+        check(a.chat_lines(m) == ["Removed name:carl from the whitelist."], "/whitelist remove takes the name entry")
+        kind, _ = Client.try_join(PORT, name="Carl", source=CARL)
+        check(kind == "welcome", "the key entry still admits", kind)
+        m = a.chat("/whitelist remove ip:" + CARL)
+        check(a.chat_lines(m) == ["Removed ip:%s from the whitelist." % CARL], "/whitelist remove by key")
         kind, _ = Client.try_join(PORT, name="Carl", source=CARL)
         check(kind == "kick", "removed: refused again", kind)
         m = a.chat("/whitelist off")
@@ -187,6 +215,47 @@ def main():
         m = a.chat("/unban ip:" + BOB)
         check(a.chat_lines(m) == ["Unbanned Bob."], "/unban by key")
 
+        info("--- names: whole and unambiguous; keys: literals ---")
+        m = a.chat("/tempban Bo 1h")
+        check(a.chat_lines(m) == ["No player matches 'Bo'."], "a prefix bans nobody")
+        m = a.chat("/ban ip:nodemp:1")
+        check(a.chat_lines(m) == [lang("err.bad_key").replace("{target}", "ip:nodemp:1")],
+              "an account ban cannot be smuggled in as an ip: key")
+        m = a.chat("/bans")
+        check(a.chat_lines(m) == ["0 ban(s):"], "nothing was banned by it")
+        fake = Client.join(PORT, name="Bob", source=FAKE)
+        m = m_.chat("/mute Bob")
+        lines = m_.chat_lines(m)
+        check(len(lines) == 1 and lines[0].startswith("'Bob' matches several players: ")
+              and lines[0].endswith(" Use #pid or the key.") and "ip:127.0.*.*" in lines[0] and BOB not in lines[0],
+              "a connected guest and a record of the same name: ambiguous, the addresses masked for a mod", lines)
+        m = a.chat("/mute Bob")
+        lines = a.chat_lines(m)
+        check(len(lines) == 1 and "ip:%s #%d guest" % (FAKE, fake.id) in lines[0] and "ip:%s guest" % BOB in lines[0],
+              "the admin (mod.ban) sees the keys", lines)
+        m = m_.chat("/mute #%d 30m" % fake.id)
+        check(m_.chat_lines(m) == ["Muted Bob (30m): -"], "the pid is never in doubt")
+        fake.close()
+
+        info("--- a refused wd:req cannot stuff the audit; addresses are for mod.ban and up ---")
+        bob = Client.join(PORT, name="Bob", source=BOB)
+        b = Inbox(bob)
+        r = b.request("mod.kick", {"pid": alice.id, "junk": "x" * 15000})
+        check(err_code(r) == "denied", "Bob may not kick", r)
+        row = probe_data(probe(alice, "audit.tail", {"n": 1}), "rows")[0]
+        check(row["op"] == "mod.kick" or row["op"] == "kick", "the refusal is the last row", row)
+        check(row.get("args") == {"pid": alice.id} and row.get("dropped") == 1,
+              "the row keeps the shape's fields only and counts the rest", row)
+        r = b.request("players.get", {"pid": alice.id})
+        check(err_code(r) == "denied", "no players.view for Bob", r)
+        r = m_.request("players.get", {"pid": bob.id})
+        p = r.get("data", {}).get("player", {})
+        check(p.get("ip") == "127.0.*.*" and p.get("key") == "ip:127.0.*.*", "a mod sees masked addresses", p)
+        r = a.request("players.get", {"pid": bob.id})
+        p = r.get("data", {}).get("player", {})
+        check(p.get("ip") == BOB and p.get("key") == "ip:" + BOB, "an admin sees them", p)
+        bob.close()
+
         info("--- the audit ---")
         rows = probe_data(probe(alice, "audit.tail", {"n": 100}), "rows")
         ops = [r_["op"] for r_ in rows]
@@ -196,6 +265,8 @@ def main():
         denied = [r_ for r_ in rows if r_["result"] == "denied"]
         reasons = {r_["reason"] for r_ in denied}
         check("outranked" in reasons and "denied" in reasons, "the refusals carry their reason", reasons)
+        check({"guest_by_name", "ambiguous", "bad_key", "no_target"} <= reasons, "and the new ones", reasons)
+        check(all(len(json.dumps(r_)) <= 1400 for r_ in rows), "no row is anywhere near the stuffing size")
         m = m_.chat("/audit 3")
         lines = m_.chat_lines(m)
         check(lines[0] == "Last 3 audit row(s):" and len(lines) == 4, "/audit 3", lines)

@@ -6,7 +6,9 @@
 --   bans.init()
 --   bans.ban(target, by, reason, duration_sec?) -> ok, err
 --       target = { key, player?, name }; a duration makes it temporary
---   bans.unban(key) -> ok, err
+--   bans.unban(key) -> ok, err      "acct:<id>", "ip:<literal>", or a key stored here exactly
+--                                   (lifted through what was banned, so a row from before
+--                                   keys were validated still comes off)
 --   bans.list() -> array { key, who, name, reason, by, at, until }
 --   bans.tick()                     lifts what expired (node.every, and callable)
 --   bans.meta(key) -> the record
@@ -21,9 +23,15 @@ M.CHECK_MS = 30000
 
 local file = nil
 local timer = nil
+local registered = false
 
 function M.init()
     file = store.open("bans_meta", function() return {} end)
+    if not registered then
+        -- a key with a row here is a key an admin may type exactly (unban)
+        identity.add_key_source(function(key) return file ~= nil and file.data[key] ~= nil end)
+        registered = true
+    end
     if timer then node.cancel(timer) end
     timer = node.every(M.CHECK_MS, M.tick)
 end
@@ -66,9 +74,9 @@ function M.ban(target, by, reason, duration)
 end
 
 function M.unban(key)
-    local who = identity.ban_target(key)
-    if who == nil then return nil, "bad_target" end
     local meta = file.data[key]
+    local who = meta and meta.who or identity.ban_target(key)
+    if who == nil then return nil, "bad_target" end
     local lifted = node.bans.remove(who) and true or false
     if meta and meta.ip and meta.ip ~= who then
         if node.bans.remove(meta.ip) then lifted = true end

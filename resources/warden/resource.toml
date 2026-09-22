@@ -59,12 +59,15 @@ chat_veto_event = ""
 enabled = false
 
 [config.votekick]
-# (runtime: votekick.*)
-enabled = true
-# Share of the eligible voters (everyone connected except the target) that must
-# say yes: 0.6 = 60 %.
+# Off by default: a vote is only as honest as the voters, and on a server that
+# admits guests the same person can connect more than once. Votes weigh by
+# identity (account, or address for guests) and the cooldowns survive a
+# restart (data/votekick.json), but turn it on knowingly. (runtime: votekick.*)
+enabled = false
+# Share of the eligible voters (every identity connected except the target's)
+# that must say yes: 0.6 = 60 %.
 threshold = 0.6
-# No vote with fewer players connected.
+# No vote with fewer identities connected (players behind one address count once).
 min_players = 4
 # Seconds a vote stays open.
 window_sec = 60

@@ -2,8 +2,9 @@
 --
 -- NOT part of the resource: it lives under tests/gate/hooks and the harness
 -- copies it into the scratch server's resources/warden/server/dev/ for a
--- server started with env=TEST_HOOKS_ENV. A release archive never has it;
--- main.lua requires it only when WD_TEST_HOOKS is "1" AND the file exists.
+-- server started with env=TEST_HOOKS_ENV, appending the one require line to
+-- that copy of main.lua. A release archive has neither the probes nor a
+-- loader for them (the shipped main.lua never mentions this file).
 --
 --   client -> server  wd:_test.query  { id, what, args }
 --   server -> client  wd:_test.reply  { id, ok = true, data } | { id, ok = false, error = { code } }

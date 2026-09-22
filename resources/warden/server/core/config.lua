@@ -24,7 +24,7 @@ M.SCHEMA = {
     ["chat_fallback"] = { type = "bool", default = false },
     ["chat_veto_event"] = { type = "string", default = "" },
     ["whitelist.enabled"] = { type = "bool", default = false, runtime = true },
-    ["votekick.enabled"] = { type = "bool", default = true, runtime = true },
+    ["votekick.enabled"] = { type = "bool", default = false, runtime = true },
     ["votekick.threshold"] = { type = "number", default = 0.6, min = 0.5, max = 1.0, runtime = true },
     ["votekick.min_players"] = { type = "int", default = 4, min = 2, max = 200, runtime = true },
     ["votekick.window_sec"] = { type = "int", default = 60, min = 15, max = 600, runtime = true },

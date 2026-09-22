@@ -298,7 +298,12 @@ class Server:
         dest = self.resource_home
         shutil.copytree(RESOURCE_DIR, dest, ignore=shutil.ignore_patterns(".obfcache", "__pycache__", "data"))
         if self.hooks:
+            # the probes, and the one line that loads them -- appended to the scratch copy of
+            # main.lua, so the resource as shipped carries neither
             shutil.copytree(HOOKS_DIR, os.path.join(dest, "server"), dirs_exist_ok=True)
+            with open(os.path.join(dest, "server", "main.lua"), "a", encoding="utf-8", newline="\n") as f:
+                f.write("\n-- appended by tests/gate/harness.py: the gate probes (WD_TEST_HOOKS=1)\n"
+                        'require("dev.test_hooks").install()\n')
         if self.config:
             patch_manifest(os.path.join(dest, "resource.toml"), self.config)
         if self.chat:

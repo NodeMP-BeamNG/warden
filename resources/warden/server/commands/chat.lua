@@ -177,7 +177,11 @@ command("whitelist", { usage = "add|remove <player> | list | on | off", kind = "
     run = function(player, actor, c)
         local sub = (c.words[1] or ""):lower()
         if sub == "add" and c.words[2] then
-            run(player, actor, "whitelist_add", { entry = c.words[2] })
+            run(player, actor, "whitelist_add", { entry = c.words[2] }, function(d)
+                -- a name entry admits a signed-in account of that name only, never a guest: say so
+                local code = d.name_entry and "done.whitelist_add_name" or "done.whitelist_add"
+                say.tell(player, code, { entry = d.entry })
+            end)
         elseif sub == "remove" and c.words[2] then
             run(player, actor, "whitelist_remove", { entry = c.words[2] })
         elseif sub == "on" or sub == "off" then
@@ -311,14 +315,15 @@ end
 function M.handle(player, line)
     local c = parser.parse(line, "/")
     if c == nil then return false end
-    local spec = M.COMMANDS[c.name]
-    if spec == nil then
-        say.tell(player, "err.unknown_command", { name = c.name })
-        return true
-    end
+    -- the limiter first: an unknown command is a line answered like any other
     local ok, retry = lim:allow(player.id, util.now())
     if not ok then
         say.tell(player, "err.rate_limited", { sec = retry })
+        return true
+    end
+    local spec = M.COMMANDS[c.name]
+    if spec == nil then
+        say.tell(player, "err.unknown_command", { name = c.name })
         return true
     end
     local actor = perms.actor(player)

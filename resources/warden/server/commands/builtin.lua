@@ -26,6 +26,11 @@ local function target_info(t)
     return { pid = t.pid, key = t.key, name = t.name, group = t.group, level = t.level }
 end
 
+-- may this actor see addresses? (spec 4.7: IPs are for mod.ban and up)
+local function reveals(actor)
+    return actor.console == true or perms.has(actor.player or actor, "mod.ban")
+end
+
 -- ---------------------------------------------------------------------------
 -- moderation
 -- ---------------------------------------------------------------------------
@@ -117,20 +122,34 @@ registry.define("warn", {
 -- whitelist
 -- ---------------------------------------------------------------------------
 
+-- a whitelist refusal that names candidates: addresses only for mod.ban and up
+local function whitelist_refusal(ctx, err, params)
+    params = params or {}
+    if err == "ambiguous" then
+        params.keys = identity.describe(params.candidates, reveals(ctx.actor))
+        params.candidates = nil
+    elseif err == "guest_by_name" and not reveals(ctx.actor) then
+        params.key = identity.mask_key(params.key)
+    end
+    return err, params
+end
+
+-- a plain name that nobody has yet becomes a name entry: it admits a signed-in
+-- account of that name at its first join, never a guest (name_entry = true in the reply)
 registry.define("whitelist_add", {
     perm = "mod.whitelist", shape = { entry = { type = "string", max = 64 } },
     fn = function(ctx)
-        local norm, err = whitelist.add(ctx.data.entry, ctx.actor)
-        if not norm then return err end
-        return { entry = norm }
+        local norm, err, params = whitelist.add(ctx.data.entry, ctx.actor)
+        if not norm then return whitelist_refusal(ctx, err, params) end
+        return { entry = norm, name_entry = norm:sub(1, 5) == "name:" or nil }
     end,
 })
 
 registry.define("whitelist_remove", {
     perm = "mod.whitelist", shape = { entry = { type = "string", max = 64 } },
     fn = function(ctx)
-        local norm, err = whitelist.remove(ctx.data.entry)
-        if not norm then return err end
+        local norm, err, params = whitelist.remove(ctx.data.entry)
+        if not norm then return whitelist_refusal(ctx, err, params) end
         return { entry = norm }
     end,
 })
@@ -153,7 +172,8 @@ registry.define("whitelist_enable", {
 -- ---------------------------------------------------------------------------
 
 registry.define("group_set", {
-    perm = "perms.set", target = "key", rank = true, shape = { group = { type = "string", max = 24 } },
+    perm = "perms.set", target = "key", rank = true, privileged = true,
+    shape = { group = { type = "string", max = 24 } },
     fn = function(ctx)
         local g = groups.get(ctx.data.group)
         if g == nil then return "unknown_group", { group = ctx.data.group } end
@@ -170,23 +190,44 @@ registry.define("groups", {
     fn = function() return { groups = groups.all(), permissions = groups.PERMISSIONS } end,
 })
 
+-- the permissions a group defined as `def` would end up with: its own and
+-- everything its parents carry (what the actor must hold themselves)
+local function candidate_perms(def)
+    local set = {}
+    for _, p in ipairs(type(def.perms) == "table" and def.perms or {}) do set[tostring(p)] = true end
+    for _, parent in ipairs(type(def.inherits) == "table" and def.inherits or {}) do
+        if type(parent) == "string" then
+            for p in pairs(groups.effective_perms(parent)) do set[p] = true end
+        end
+    end
+    return set
+end
+
 registry.define("group_save", {
     perm = "perms.manage", shape = { group = { type = "table" } },
     fn = function(ctx)
         local def = ctx.data.group
-        -- nobody edits a group at or above their own level, nor grants "*"
+        -- nobody edits a group at or above their own level, inherits from one, grants "*",
+        -- or ends up granting -- directly or through a parent -- what they do not hold
         if not ctx.actor.console then
             local level = math.tointeger(tonumber(def.level)) or 0
             if level >= ctx.actor.level then return "group_too_high", { group = tostring(def.name) } end
             local existing = groups.get(def.name)
             if existing and existing.level >= ctx.actor.level then return "group_too_high", { group = def.name } end
-            for _, p in ipairs(type(def.perms) == "table" and def.perms or {}) do
+            for _, parent in ipairs(type(def.inherits) == "table" and def.inherits or {}) do
+                if type(parent) ~= "string" or not groups.exists(parent) then
+                    return "unknown_parent", { group = tostring(def.name) }
+                end
+                if groups.level(parent) >= ctx.actor.level then return "group_too_high", { group = parent } end
+            end
+            for _, p in ipairs(util.keys(candidate_perms(def))) do
                 if p == "*" then return "bad_perm", { perm = p } end
-                if not perms.has(ctx.actor.player, p) then return "perm_not_yours", { perm = tostring(p) } end
+                if not perms.has(ctx.actor.player, p) then return "perm_not_yours", { perm = p } end
             end
         end
         local g, err = groups.save(def)
         if not g then return err, { group = tostring(def.name) } end
+        ctx.detail = { group = g }
         return { group = g }
     end,
 })
@@ -205,6 +246,7 @@ registry.define("group_delete", {
         for key, rec in pairs(identity.all()) do
             if rec.group == ctx.data.name then
                 rec.group = nil
+                rec.level = perms.level_of_key(key)
                 identity.mark()
                 for _, p in ipairs(node.players.all()) do
                     if identity.key(p) == key then perms.apply_tag(p) end
@@ -272,7 +314,9 @@ registry.define("vote_state", {
 -- players, settings, audit, server
 -- ---------------------------------------------------------------------------
 
-function M.player_row(p, full)
+-- the row the panel shows; `viewer` (an actor or a player) decides whether
+-- the address is shown: their own, or mod.ban and up -- masked otherwise
+function M.player_row(p, full, viewer)
     local row = {
         pid = p.id, name = p.name, group = perms.group_of(p), level = perms.level_of(p),
         vehicles = p.vehicleCount or 0, ping = p.pingSeconds, connected = p.connectedSeconds,
@@ -282,8 +326,9 @@ function M.player_row(p, full)
         local key = identity.key(p)
         local rec = identity.record(key)
         local muted, m = mutes.is_muted(key)
-        row.key = key
-        row.ip = p.ip
+        local reveal = viewer == nil or viewer.console == true or (viewer.pid or viewer.id) == p.id or reveals(viewer)
+        row.key = reveal and key or identity.mask_key(key)
+        row.ip = reveal and p.ip or identity.mask_ip(p.ip)
         row.account = p.accountId
         row.names = rec and rec.names or {}
         row.joins = rec and rec.joins or 0
@@ -304,9 +349,10 @@ registry.define("players", {
     end,
 })
 
+-- read-only, so a unique prefix of a connected name is accepted here (nowhere else)
 registry.define("player_get", {
-    perm = "players.view", target = "player", audit = false,
-    fn = function(ctx) return { player = M.player_row(ctx.target.player, true) } end,
+    perm = "players.view", target = "player", fuzzy = true, audit = false,
+    fn = function(ctx) return { player = M.player_row(ctx.target.player, true, ctx.actor) } end,
 })
 
 registry.define("settings_list", {
@@ -333,10 +379,15 @@ registry.define("settings_reset", {
     end,
 })
 
+-- the tail is bounded (limit <= 200, from memory); the addresses in it are for mod.ban and up
 registry.define("audit_tail", {
     perm = "audit.view", shape = { limit = { type = "int", min = 1, max = 200, optional = true, default = 30 } },
     audit = false,
-    fn = function(ctx) return { rows = audit.tail(ctx.data.limit) } end,
+    fn = function(ctx)
+        local rows = audit.tail(ctx.data.limit)
+        if not reveals(ctx.actor) then rows = identity.mask(rows) end
+        return { rows = rows }
+    end,
 })
 
 registry.define("announce", {
@@ -368,7 +419,7 @@ registry.define("whoami", {
     audit = false,
     fn = function(ctx)
         if ctx.actor.console then return { name = "console" } end
-        return { me = M.player_row(ctx.actor.player, true), perms = perms.perms_of(ctx.actor.player) }
+        return { me = M.player_row(ctx.actor.player, true, ctx.actor), perms = perms.perms_of(ctx.actor.player) }
     end,
 })
 

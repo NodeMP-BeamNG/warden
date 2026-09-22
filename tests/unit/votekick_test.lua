@@ -3,7 +3,11 @@
 local boot = require("boot")
 
 local function setup(overrides)
-    local W = boot(overrides or {})
+    -- off by default (the spec); these tests turn it on unless told otherwise
+    overrides = overrides or {}
+    overrides.votekick = overrides.votekick or {}
+    if overrides.votekick.enabled == nil then overrides.votekick.enabled = true end
+    local W = boot(overrides)
     local players = {}
     for i = 1, 6 do players[i] = node._join(i, { name = "P" .. i, accountId = i }) end
     W.perms.set_group(players[1], "trusted")   -- may start
