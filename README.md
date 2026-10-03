@@ -255,3 +255,6 @@ organisation at the moment, so run the checks locally:
 `luacheck resources content tests tools`, `lua tests/unit/run.lua`,
 `lua tools/lang-check.lua`, `lua tools/lang-gen.lua --check`,
 `tools/get-server.ps1` and `python tests/gate/<name>_test.py`.
+
+CI never publishes a release. The owner makes one locally: `tools/pack.sh`, then
+`gh release create vX.Y.Z dist/warden-X.Y.Z.zip dist/warden-X.Y.Z.zip.sha256`.
