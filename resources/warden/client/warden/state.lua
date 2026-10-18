@@ -32,8 +32,7 @@ local i18n = require("warden/i18n")
 
 local M = {}
 
--- the row of small buttons under a player, in the order the CobaltEssentials
--- Interface has them: vote kick, kick, ban, tempban, mute / unmute, whitelist /
+-- the row of small buttons under a player, in this order: vote kick, kick, ban, tempban, mute / unmute, whitelist /
 -- unwhitelist, then warden's own warn, group and cars. `confirm`: the button
 -- asks for a second click (a ban is not a misclick away).
 M.ACTIONS = {
@@ -60,7 +59,7 @@ M.ACTIONS = {
         label = "ui.action.cars" },
 }
 
--- the tabs, the CEI's four; a tab with perm = nil is always there
+-- the four tabs; a tab with perm = nil is always there
 M.TABS = {
     { id = "players", perm = "players.view", label = "ui.tab.players" },
     { id = "config", perm = nil, label = "ui.tab.config" },

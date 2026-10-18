@@ -1,7 +1,7 @@
 -- ui.uistate: what a player's panel looks like for them -- shown or hidden,
 -- the UI scale -- kept per identity key in data/ui.json so it survives a
--- rejoin (the control model of the CobaltEssentials Interface: the window is
--- on by default, the player hides it once and it stays hidden for them).
+-- rejoin (the window is on by default, the player hides it once and it stays
+-- hidden for them).
 --
 -- The store is bounded: past MAX_RECORDS keys the least recently touched
 -- record goes (every set() stamps `at`). Only the two fields are ever kept,

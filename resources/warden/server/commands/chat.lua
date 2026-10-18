@@ -95,7 +95,7 @@ command("version", { usage = "", run = function(player)
     say.tell(player, "version", { version = m.version or "?" })
 end })
 
--- the panel toggle (the CobaltEssentials Interface's /CEI): the client half hears
+-- the panel toggle: the client half hears
 -- wd:event panel and shows or hides the window; /wd is the short alias
 local function toggle_panel(player)
     require("ui.protocol").send_event(player, "panel", { toggle = true })
