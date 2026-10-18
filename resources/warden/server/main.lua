@@ -70,9 +70,7 @@ protocol.init(cfg)
 -- other resources
 require("integration.bus").init(VERSION)
 
--- ---------------------------------------------------------------------------
 -- the vote in the chat (the panel gets wd:event vote.state from ui.push)
--- ---------------------------------------------------------------------------
 
 votekick.on(function(event, state)
     if state == nil then return end
@@ -89,9 +87,7 @@ votekick.on(function(event, state)
     end
 end)
 
--- ---------------------------------------------------------------------------
 -- engine events
--- ---------------------------------------------------------------------------
 
 -- The connect gate. Bans are the server's (checked before this fires).
 node.on("playerConnectRequest", function(player, _, name)

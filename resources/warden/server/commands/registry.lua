@@ -173,9 +173,7 @@ local function check_shape(spec, data)
     return out
 end
 
--- ---------------------------------------------------------------------------
 -- the audit row
--- ---------------------------------------------------------------------------
 
 local function slim_value(v)
     local tv = type(v)

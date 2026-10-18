@@ -25,9 +25,7 @@ local M = {}
 local lim = nil
 local cfg = nil
 
--- ---------------------------------------------------------------------------
 -- answering
--- ---------------------------------------------------------------------------
 
 local function reply_error(player, err)
     local code = err.code
@@ -76,9 +74,7 @@ local function ts(sec)
     return os.date("!%Y-%m-%d %H:%M", sec)
 end
 
--- ---------------------------------------------------------------------------
 -- the commands
--- ---------------------------------------------------------------------------
 
 M.COMMANDS = {}
 
@@ -304,9 +300,7 @@ command("reload", { usage = "", kind = "reload", run = function(player, actor)
     run(player, actor, "reload", {}, function() say.tell(player, "done.reload", {}) end)
 end })
 
--- ---------------------------------------------------------------------------
 -- dispatch
--- ---------------------------------------------------------------------------
 
 function M.help(actor)
     local out = {}

@@ -70,9 +70,7 @@ function M.key(player)
     return "ip:" .. tostring(player.ip or "?")
 end
 
--- ---------------------------------------------------------------------------
 -- addresses and keys
--- ---------------------------------------------------------------------------
 
 local function is_ipv4(s)
     local a, b, c, d = s:match("^(%d+)%.(%d+)%.(%d+)%.(%d+)$")
@@ -174,9 +172,7 @@ function M.mask(value)
     return out
 end
 
--- ---------------------------------------------------------------------------
 -- records
--- ---------------------------------------------------------------------------
 
 local function is_guest_key(key)
     return type(key) == "string" and key:sub(1, 3) == "ip:"
@@ -280,9 +276,7 @@ function M.guest_count()
     return count_guests()
 end
 
--- ---------------------------------------------------------------------------
 -- finding a player
--- ---------------------------------------------------------------------------
 
 function M.online_by_key(key)
     for _, p in ipairs(node.players.all()) do
