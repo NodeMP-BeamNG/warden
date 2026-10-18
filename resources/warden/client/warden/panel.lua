@@ -1,10 +1,9 @@
 -- warden/panel: the admin panel, drawn with the game's Dear ImGui binding
 -- (ui_imgui) every frame the window is open, and the vote banner.
 --
--- The control model and the window structure follow the CobaltEssentials
--- Interface (CEI), reproduced from its behaviour: one window with a QuickInfo
--- bar (server, counts, status chips), the UI scale with its Reset, then the
--- tabs Players / Config / Environment / Database; under Players a collapsing
+-- One window with a QuickInfo bar (server, counts, status chips), the UI
+-- scale with its Reset, then the tabs Players / Config / Environment /
+-- Database; under Players a collapsing
 -- header per player with a row of small buttons, the reason and duration
 -- fields, and the vehicles / info / permissions tree nodes; the window is
 -- shown by default and every player's choice (shown, scale) is kept by the

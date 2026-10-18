@@ -23,7 +23,7 @@ local util = require("core.util")
 
 local M = {}
 
-M.PROTOCOL = 2   -- 2: hello carries ui / server / status and no key (0.2.0)
+M.PROTOCOL = 2   -- 2: hello carries ui / server / status and no key
 M.EVENTS = { req = "wd:req", reply = "wd:reply", event = "wd:event" }
 M.MAX_FRAME = 16 * 1024
 

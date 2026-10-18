@@ -63,9 +63,7 @@ TEST_HOOKS_ENV = {"WD_TEST_HOOKS": "1"}
 LOST = testclient.LOST
 
 
-# ---------------------------------------------------------------------------
 # results
-# ---------------------------------------------------------------------------
 
 _failed = 0
 _passed = 0
@@ -106,9 +104,7 @@ def lang(code, language="en"):
         return json.load(f)[code]
 
 
-# ---------------------------------------------------------------------------
 # the server binary and the chat resource
-# ---------------------------------------------------------------------------
 
 def server_binary():
     candidates = []
@@ -148,9 +144,7 @@ def chat_resource_dir(exe):
     return None
 
 
-# ---------------------------------------------------------------------------
 # ports
-# ---------------------------------------------------------------------------
 
 def _can_bind(port, kind):
     s = socket.socket(socket.AF_INET, kind)
@@ -182,9 +176,7 @@ def wait_free(port, deadline):
     return False
 
 
-# ---------------------------------------------------------------------------
 # resource.toml [config] overrides
-# ---------------------------------------------------------------------------
 
 def _toml_value(v):
     if isinstance(v, bool):
@@ -255,9 +247,7 @@ def resource_version():
         return tomllib.load(f).get("version")
 
 
-# ---------------------------------------------------------------------------
 # the server
-# ---------------------------------------------------------------------------
 
 class Server:
     """A Node-Server with warden and chat, for the duration of a `with` block.
@@ -450,9 +440,7 @@ class Server:
         return "; ".join(bits)
 
 
-# ---------------------------------------------------------------------------
 # clients
-# ---------------------------------------------------------------------------
 
 def parse_event(sub, body):
     return testclient.parse_event(sub, body)
@@ -639,9 +627,7 @@ def err_code(reply):
     return ((reply or {}).get("error") or {}).get("code")
 
 
-# ---------------------------------------------------------------------------
 # test hooks (WD_TEST_HOOKS=1)
-# ---------------------------------------------------------------------------
 
 _probe_ids = [0]
 

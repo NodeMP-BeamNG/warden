@@ -1,7 +1,5 @@
 name: ci
 
-# GitHub Actions is billing-blocked for the organisation at the time of
-# writing; the workflow is kept current so it runs the day it is enabled.
 # Locally: `luacheck resources content tests tools`, `lua tests/unit/run.lua`,
 # `lua tools/lang-check.lua`, `lua tools/lang-gen.lua --check`,
 # `lua tools/config-doc.lua --check README.md`, `tools/get-server.ps1` then

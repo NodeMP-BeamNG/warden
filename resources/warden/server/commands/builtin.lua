@@ -32,9 +32,7 @@ local function reveals(actor)
     return actor.console == true or perms.has(actor.player or actor, "mod.ban")
 end
 
--- ---------------------------------------------------------------------------
 -- moderation
--- ---------------------------------------------------------------------------
 
 registry.define("kick", {
     perm = "mod.kick", target = "player", rank = true, shape = { reason = REASON },
@@ -129,9 +127,7 @@ registry.define("warn", {
     end,
 })
 
--- ---------------------------------------------------------------------------
 -- whitelist
--- ---------------------------------------------------------------------------
 
 -- a whitelist refusal that names candidates: addresses only for mod.ban and up
 local function whitelist_refusal(ctx, err, params)
@@ -178,9 +174,7 @@ registry.define("whitelist_enable", {
     end,
 })
 
--- ---------------------------------------------------------------------------
 -- groups
--- ---------------------------------------------------------------------------
 
 registry.define("group_set", {
     perm = "perms.set", target = "key", rank = true, privileged = true,
@@ -268,9 +262,7 @@ registry.define("group_delete", {
     end,
 })
 
--- ---------------------------------------------------------------------------
 -- vehicles
--- ---------------------------------------------------------------------------
 
 -- every vehicle of the target, or one of them (`vid`: the global vehicle id
 -- the client mod shows; it must be the target's own -- anyone else's is bad_arg)
@@ -293,9 +285,7 @@ registry.define("car_delete", {
     end,
 })
 
--- ---------------------------------------------------------------------------
 -- vote-kick
--- ---------------------------------------------------------------------------
 
 registry.define("votekick_start", {
     perm = "votekick.start", target = "player", shape = { reason = { type = "string", max = 120, optional = true } },
@@ -331,9 +321,7 @@ registry.define("vote_state", {
     fn = function() return { vote = votekick.state() } end,
 })
 
--- ---------------------------------------------------------------------------
 -- players, settings, audit, server
--- ---------------------------------------------------------------------------
 
 -- the row the panel shows; `viewer` (an actor or a player) decides whether
 -- the address is shown: their own, or mod.ban and up -- masked otherwise

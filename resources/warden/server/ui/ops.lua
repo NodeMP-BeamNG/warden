@@ -11,7 +11,7 @@
 -- permissions, default_group, ui { shown, scale, theme }, server { name,
 -- map, version, max_players, max_cars }, status (ui.push.status_snapshot:
 -- whitelist / spawn / guests / players / cars). No key: the panel has no
--- fixed key since 0.2.0 -- /warden, the bindable game action, or the console.
+-- fixed key -- /warden, the bindable game action, or the console.
 
 local builtin = require("commands.builtin")
 local groups = require("perms.groups")
