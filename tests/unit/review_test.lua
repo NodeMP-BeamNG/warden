@@ -1,4 +1,4 @@
--- Regression tests for the 0.1.0 security review (infra sdd/warden-review.md):
+-- Regression tests for the findings of the security review (infra sdd/warden-review.md):
 -- H1 inherits in group_save, H2 the rank of an offline owner and ip: keys,
 -- H3 names on a server with guests, M1 the audit rows, M2 vote weight and
 -- cooldown, M4 prefixes, L1 the limiter, L2 addresses, L3 read-only stores,
@@ -65,16 +65,14 @@ end
 
 local tests = {}
 
--- ---------------------------------------------------------------------------
 -- H1: group_save validates inherits
--- ---------------------------------------------------------------------------
 
 tests.h1_group_save_validates_inherits = function()
     local W, _, admin, _, bob = setup()
     admins_manage_groups(W)
     local actor = W.perms.actor(admin)
     local function save(def) return W.registry.run(actor, "group_save", { group = def }) end
-    -- the escalation of the review: a low group inheriting owner
+    -- the escalation: a low group inheriting owner
     local r = save({ name = "helper", level = 1, inherits = { "owner" } })
     t.eq(r.error.code, "group_too_high")
     t.eq(r.error.params.group, "owner")
@@ -125,9 +123,7 @@ tests.h1_group_save_validates_inherits = function()
     t.eq(r.ok, true)
 end
 
--- ---------------------------------------------------------------------------
 -- H2: the rank of an offline owner; ip: keys are literals
--- ---------------------------------------------------------------------------
 
 tests.h2_offline_owner_keeps_rank = function()
     local W, owner, admin = setup({ owner_ids = { 1 } })
@@ -138,7 +134,7 @@ tests.h2_offline_owner_keeps_rank = function()
     t.eq(rec.owner_role, true, "the directory's ADM flag is remembered")
     t.eq(rec.level, 100)
     t.eq(W.identity.record("acct:2").level, 90, "the level is written at the join")
-    -- online: outranked; offline: still outranked (the review banned the owner here)
+    -- online: outranked; offline: still outranked
     cmd(admin, "/ban Own")
     t.match(node._told_text(2), "Own is not below your level")
     node._leave(1)
@@ -194,7 +190,7 @@ tests.h2_ip_keys_are_literals = function()
     t.eq(id.parse_key("ip:1.2.3.4"), "ip:1.2.3.4")
     t.eq(id.parse_key("ip:nodemp:1"), nil)
     t.eq(id.ban_target("ip:nodemp:1"), nil)
-    -- the review's bypass: an account ban smuggled in as an "ip"
+    -- the bypass: an account ban smuggled in as an "ip"
     cmd(admin, "/ban ip:nodemp:1")
     t.match(node._told_text(2), "'ip:nodemp:1' is not a key")
     t.eq(node._bans["nodemp:1"], nil)
@@ -234,9 +230,7 @@ tests.h2_ip_keys_are_literals = function()
     t.match(node._told_text(2), "Not banned")
 end
 
--- ---------------------------------------------------------------------------
 -- H3: names on a server with guests
--- ---------------------------------------------------------------------------
 
 tests.h3_names_never_hand_privileges_to_guests = function()
     local W, _, admin, mod, bob, guest = setup()
@@ -358,13 +352,11 @@ tests.h3_name_whitelist_admits_signed_in_accounts_only = function()
     t.match(node._told_text(2), "Removed name:dora")
 end
 
--- ---------------------------------------------------------------------------
 -- M1: the audit rows
--- ---------------------------------------------------------------------------
 
 tests.m1_audit_rows_carry_shape_fields_only_and_are_capped = function()
     local W, _, admin, _, bob = setup({ limits = { ui_per_sec = 100 } })
-    -- the review's stuffing: a refused frame with 15 KB of junk
+    -- the stuffing: a refused frame with 15 KB of junk
     local r = req(W, bob, 1, "mod.kick", { pid = 1, junk = string.rep("x", 15000) })
     t.eq(r.error.code, "denied")
     local row = last_audit(W)
@@ -431,9 +423,7 @@ tests.m1_audit_is_appended_in_bounded_parts = function()
     t.eq(node._files["data/audit/2000-01-01.3.jsonl"], nil)
 end
 
--- ---------------------------------------------------------------------------
 -- M2: vote weight by identity, the default, the cooldown store, immunity
--- ---------------------------------------------------------------------------
 
 tests.m2_votes_weigh_by_identity = function()
     local W = boot({ votekick = { enabled = true, cooldown_sec = 0 } })
@@ -528,9 +518,7 @@ tests.m2_off_by_default_cooldown_persists_immunity_at_the_end = function()
     t.eq(saved.cooldown["acct:3"], 1700000000 + 601 + 600, "a failed vote is a vote: cooldown")
 end
 
--- ---------------------------------------------------------------------------
 -- M4: prefixes only for the read-only kinds
--- ---------------------------------------------------------------------------
 
 tests.m4_prefixes_only_for_read_kinds = function()
     local W, _, admin, mod = setup()
@@ -562,9 +550,7 @@ tests.m4_prefixes_only_for_read_kinds = function()
     t.eq(#node._kicked, 2)
 end
 
--- ---------------------------------------------------------------------------
 -- L1: the limiter covers unknown commands
--- ---------------------------------------------------------------------------
 
 tests.l1_limiter_covers_unknown_commands = function()
     setup({ limits = { commands_per_10s = 8 } })
@@ -579,9 +565,7 @@ tests.l1_limiter_covers_unknown_commands = function()
     t.eq(limited, 42)
 end
 
--- ---------------------------------------------------------------------------
 -- L2: addresses for mod.ban and up
--- ---------------------------------------------------------------------------
 
 tests.l2_addresses_only_for_mod_ban = function()
     local W, _, admin, mod = setup({ limits = { ui_per_sec = 100 } })
@@ -617,9 +601,7 @@ tests.l2_addresses_only_for_mod_ban = function()
     t.eq(r.data.rows[1].actor.key, "acct:2")
 end
 
--- ---------------------------------------------------------------------------
 -- L3: a read-only store is reported, not a silent drop
--- ---------------------------------------------------------------------------
 
 tests.l3_readonly_store_is_reported = function()
     local W, _, admin, _, bob = setup()
@@ -655,9 +637,7 @@ tests.l3_readonly_store_is_reported = function()
     t.match(node._files["data/players.json"], '"group": "mod"')
 end
 
--- ---------------------------------------------------------------------------
 -- L4: guest records are bounded
--- ---------------------------------------------------------------------------
 
 tests.l4_guest_records_are_bounded = function()
     local W = boot({})
@@ -693,9 +673,7 @@ tests.l4_guest_records_are_bounded = function()
     t.eq(W2.identity.guest_count(), 20)
 end
 
--- ---------------------------------------------------------------------------
 -- L5: no test-hook loader in the release main.lua
--- ---------------------------------------------------------------------------
 
 tests.l5_no_test_hook_loader_in_main = function()
     local sep = package.config:sub(1, 1)

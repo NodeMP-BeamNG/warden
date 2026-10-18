@@ -28,9 +28,7 @@ package.path = table.concat({
 
 WD_ROOT = root -- luacheck: ignore 111 (the stub reads lang/ from the real resource)
 
--- ---------------------------------------------------------------------------
 -- assertions
--- ---------------------------------------------------------------------------
 
 local function repr(v, depth)
     depth = depth or 0
@@ -106,9 +104,7 @@ T.repr = repr
 T.deep_eq = deep_eq
 t = T -- luacheck: ignore 111
 
--- ---------------------------------------------------------------------------
 -- discovery and run
--- ---------------------------------------------------------------------------
 
 local function list_tests()
     local files = {}

@@ -359,8 +359,8 @@ local function make_imgui(game)
         if hit then ptr[0] = v end
         return hit
     end
-    -- the game feeds keys to imgui; the panel does not read them any more (0.2.0), the
-    -- fake keeps the call so a test can prove nothing listens
+    -- the game feeds keys to imgui; the panel does not read them, and the fake
+    -- keeps the call so a test can prove nothing listens
     im.IsKeyPressed = function(key)
         rec("IsKeyPressed", key)
         if pressed[key] then
